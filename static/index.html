@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Windrose Server Manager</title>
+  <style>
+    /* ── Reset & base ────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0b0f1a;
+      --bg-card:     rgba(15, 22, 40, 0.85);
+      --border:      rgba(100, 140, 180, 0.18);
+      --gold:        #c9a84c;
+      --gold-dim:    rgba(201, 168, 76, 0.25);
+      --teal:        #4ab8c8;
+      --teal-dim:    rgba(74, 184, 200, 0.15);
+      --sand:        #d9c9a8;
+      --muted:       #7a8fa6;
+      --green:       #4caf82;
+      --red:         #c84a4a;
+      --font:        'Segoe UI', system-ui, sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--sand);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* ── Animated background ────────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(74,184,200,0.07) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 80% at 80% 90%, rgba(201,168,76,0.06) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .shell {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 2rem;
+      gap: 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-compass {
+      width: 40px;
+      height: 40px;
+      animation: spin-slow 12s linear infinite;
+    }
+
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+
+    .logo-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .logo-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .logo-subtitle {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--muted);
+    }
+
+    .status-dot.online {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.5; }
+    }
+
+    /* ── Cards ──────────────────────────────────────────────────────── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      backdrop-filter: blur(8px);
+      transition: border-color 0.2s;
+    }
+
+    .card:hover { border-color: rgba(100,140,180,0.35); }
+
+    .card-label {
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .card-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--teal);
+    }
+
+    .card-value.stopped { color: var(--muted); }
+    .card-value.running { color: var(--green); }
+    .card-value.error   { color: var(--red); }
+
+    /* ── API demo panel ─────────────────────────────────────────────── */
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .panel-title {
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .panel-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--gold-dim);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    button {
+      padding: 0.45rem 1rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--sand);
+      font-size: 0.8rem;
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: border-color 0.15s, background 0.15s, color 0.15s;
+    }
+
+    button:hover {
+      border-color: var(--teal);
+      color: var(--teal);
+      background: var(--teal-dim);
+    }
+
+    button.primary {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    button.primary:hover {
+      background: var(--gold-dim);
+    }
+
+    pre {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      font-size: 0.78rem;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      color: var(--teal);
+      max-height: 260px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    /* ── WS feed ─────────────────────────────────────────────────────── */
+    #ws-feed {
+      min-height: 60px;
+    }
+
+    /* ── Footer ─────────────────────────────────────────────────────── */
+    footer {
+      margin-top: auto;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: center;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border);
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+
+    <!-- Header -->
+    <header>
+      <div class="logo">
+        <!-- Compass rose SVG -->
+        <svg class="logo-compass" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="20" cy="20" r="18" stroke="#c9a84c" stroke-width="1.5" stroke-dasharray="4 2"/>
+          <polygon points="20,4 22,20 20,22 18,20" fill="#c9a84c"/>
+          <polygon points="20,36 22,20 20,18 18,20" fill="#7a8fa6"/>
+          <polygon points="4,20 20,18 22,20 20,22" fill="#4ab8c8"/>
+          <polygon points="36,20 20,22 18,20 20,18" fill="#7a8fa6"/>
+          <circle cx="20" cy="20" r="2.5" fill="#c9a84c"/>
+        </svg>
+        <div class="logo-text">
+          <span class="logo-title">Windrose</span>
+          <span class="logo-subtitle">Server Manager</span>
+        </div>
+      </div>
+      <div class="status-pill">
+        <span class="status-dot online" id="backend-dot"></span>
+        <span id="backend-status">Backend Online</span>
+      </div>
+    </header>
+
+    <!-- Stat cards -->
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-label">Server Status</div>
+        <div class="card-value stopped" id="card-status">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Players Online</div>
+        <div class="card-value" id="card-players">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Uptime</div>
+        <div class="card-value" id="card-uptime">—</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Backend Version</div>
+        <div class="card-value" id="card-version">—</div>
+      </div>
+    </div>
+
+    <!-- API panel -->
+    <div class="panel">
+      <div class="panel-title">⚓ Server Controls</div>
+      <div class="btn-row">
+        <button class="primary" onclick="apiPost('/api/server/start')">Start</button>
+        <button onclick="apiPost('/api/server/stop')">Stop</button>
+        <button onclick="apiPost('/api/server/restart')">Restart</button>
+        <button onclick="apiGet('/api/state')">Refresh State</button>
+        <button onclick="apiGet('/api/logs')">Fetch Logs</button>
+      </div>
+      <pre id="api-output">// Click a button to call the API…</pre>
+    </div>
+
+    <!-- WebSocket feed -->
+    <div class="panel">
+      <div class="panel-title">📡 Live Event Feed (WebSocket)</div>
+      <pre id="ws-feed">// Connecting to ws://127.0.0.1:8787/ws …</pre>
+    </div>
+
+    <footer>
+      Windrose Server Manager &mdash; local backend v<span id="footer-ver">0.1.0</span>
+      &mdash; Bound to 127.0.0.1:8787
+    </footer>
+  </div>
+
+  <script>
+    const API_BASE = '';
+    const WS_URL  = `ws://${location.host}/ws`;
+    const output  = document.getElementById('api-output');
+    const feed    = document.getElementById('ws-feed');
+    let feedLines = [];
+
+    // ── API helpers ────────────────────────────────────────────────────
+    async function apiGet(path) {
+      try {
+        const r = await fetch(API_BASE + path);
+        const json = await r.json();
+        output.textContent = JSON.stringify(json, null, 2);
+        if (path === '/api/state' && json.data) updateCards(json.data);
+      } catch (e) {
+        output.textContent = `Error: ${e.message}`;
+      }
+    }
+
+    async function apiPost(path) {
+      try {
+        const r = await fetch(API_BASE + path, { method: 'POST' });
+        const json = await r.json();
+        output.textContent = JSON.stringify(json, null, 2);
+        // Refresh state after lifecycle command
+        setTimeout(() => apiGet('/api/state'), 300);
+      } catch (e) {
+        output.textContent = `Error: ${e.message}`;
+      }
+    }
+
+    // ── Card updates ──────────────────────────────────────────────────
+    function updateCards(state) {
+      const el = document.getElementById('card-status');
+      const status = state.server?.status ?? '—';
+      el.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+      el.className = 'card-value ' + status;
+
+      document.getElementById('card-players').textContent =
+        state.player_count ?? '—';
+      document.getElementById('card-uptime').textContent =
+        state.server?.uptime_seconds != null
+          ? formatUptime(state.server.uptime_seconds)
+          : '—';
+      document.getElementById('card-version').textContent =
+        state.app_version ?? '—';
+      document.getElementById('footer-ver').textContent =
+        state.app_version ?? '0.1.0';
+    }
+
+    function formatUptime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = seconds % 60;
+      return [h, m, s].map(n => String(n).padStart(2,'0')).join(':');
+    }
+
+    // ── WebSocket ─────────────────────────────────────────────────────
+    function connectWs() {
+      let ws;
+      try {
+        ws = new WebSocket(WS_URL);
+      } catch(e) {
+        appendFeed(`[error] Could not create WebSocket: ${e.message}`);
+        return;
+      }
+
+      ws.onopen = () => {
+        appendFeed('[connected] WebSocket open');
+        document.getElementById('backend-dot').className = 'status-dot online';
+        document.getElementById('backend-status').textContent = 'Backend Online';
+      };
+
+      ws.onmessage = e => {
+        try {
+          const ev = JSON.parse(e.data);
+          appendFeed(JSON.stringify(ev));
+          if (ev.event === 'server_status_changed') {
+            const statusEl = document.getElementById('card-status');
+            const status = ev.data?.status ?? '—';
+            statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            statusEl.className = 'card-value ' + status;
+          }
+        } catch {
+          appendFeed(e.data);
+        }
+      };
+
+      ws.onerror = () => appendFeed('[error] WebSocket error');
+
+      ws.onclose = () => {
+        appendFeed('[disconnected] Reconnecting in 5 s…');
+        document.getElementById('backend-dot').className = 'status-dot';
+        document.getElementById('backend-status').textContent = 'Reconnecting…';
+        setTimeout(connectWs, 5000);
+      };
+    }
+
+    function appendFeed(text) {
+      feedLines.push(`[${new Date().toISOString()}] ${text}`);
+      if (feedLines.length > 80) feedLines.shift();
+      feed.textContent = feedLines.join('\n');
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────
+    apiGet('/api/state');
+    connectWs();
+  </script>
+</body>
+</html>
