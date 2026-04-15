@@ -31,6 +31,17 @@ pub struct AppConfig {
     pub server_stop_timeout_secs: u64,
     /// Maximum number of player events retained in the ring buffer.
     pub player_event_capacity: usize,
+    // ── Phase 3 additions ──────────────────────────────────────────────────
+    /// Directory where backup artifacts are stored.
+    /// Defaults to `./backups` relative to the working directory.
+    pub backup_dir: PathBuf,
+    /// Optional path for persisting the player-event history ring buffer across
+    /// restarts.  When set, the manager reads this file on startup and writes it
+    /// whenever a player event fires.
+    pub history_file_path: Option<PathBuf>,
+    /// GitHub Releases API URL used to check for manager-app updates.
+    /// Override to point at a private mirror or a different repo.
+    pub update_check_url: String,
 }
 
 impl Default for AppConfig {
@@ -46,6 +57,9 @@ impl Default for AppConfig {
             log_buffer_capacity: 500,
             server_stop_timeout_secs: 15,
             player_event_capacity: 200,
+            backup_dir: PathBuf::from("backups"),
+            history_file_path: None,
+            update_check_url: "https://api.github.com/repos/Rustbeard86/windrose-server-manager/releases/latest".to_string(),
         }
     }
 }
