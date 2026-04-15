@@ -1,0 +1,18 @@
+# Rust build artifacts
+/backend/target/
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environment overrides
+.env
+.env.local
+
+# Future: Node / frontend build artifacts
+node_modules/
+dist/
+.svelte-kit/
