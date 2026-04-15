@@ -1,6 +1,7 @@
 mod api;
 mod config;
 mod models;
+mod process;
 mod services;
 mod state;
 
@@ -11,6 +12,7 @@ use tower_http::trace::TraceLayer;
 use tracing::info;
 
 use crate::config::AppConfig;
+use crate::services::log_service;
 use crate::state::AppState;
 
 #[tokio::main]
@@ -31,7 +33,16 @@ async fn main() -> anyhow::Result<()> {
         .expect("Invalid bind address");
 
     let static_dir = app_config.static_dir.clone();
+    let log_file_path = app_config.log_file_path.clone();
     let app_state = AppState::new(app_config);
+
+    // Start log-tailing background task if a log file path is configured.
+    if let Some(log_path) = log_file_path {
+        info!(path = %log_path.display(), "Log tail enabled");
+        log_service::start_log_tail(app_state.clone(), log_path);
+    } else {
+        info!("No log_file_path configured — log tailing disabled");
+    }
 
     // Build the API router.
     let api_router = api::build_router(app_state.clone());

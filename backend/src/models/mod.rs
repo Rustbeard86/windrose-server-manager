@@ -44,19 +44,56 @@ impl Default for ServerInfo {
 /// Represents the managed server's primary configuration.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ServerConfig {
+    #[serde(default)]
     pub server_name: String,
+    #[serde(default)]
     pub max_players: u32,
+    #[serde(default)]
     pub port: u16,
+    #[serde(default)]
     pub invite_code: Option<String>,
+    /// Catch-all for unknown fields so round-trip serialisation preserves them.
+    #[serde(default, flatten)]
     pub extra: serde_json::Value,
 }
 
 /// Represents world / level settings.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct WorldConfig {
+    #[serde(default)]
     pub world_name: String,
+    #[serde(default)]
     pub seed: Option<String>,
+    /// Catch-all for unknown fields.
+    #[serde(default, flatten)]
     pub extra: serde_json::Value,
+}
+
+// ---------------------------------------------------------------------------
+// Player models
+// ---------------------------------------------------------------------------
+
+/// A player currently online or recently seen.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Player {
+    pub name: String,
+    pub joined_at: DateTime<Utc>,
+}
+
+/// Kind of player lifecycle event.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PlayerEventKind {
+    Joined,
+    Left,
+}
+
+/// A timestamped record of a player joining or leaving.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlayerEvent {
+    pub player_name: String,
+    pub kind: PlayerEventKind,
+    pub timestamp: DateTime<Utc>,
 }
 
 // ---------------------------------------------------------------------------
@@ -70,7 +107,11 @@ pub struct AppStateSnapshot {
     pub server_config: Option<ServerConfig>,
     pub world_config: Option<WorldConfig>,
     pub recent_logs: Vec<LogLine>,
+    /// Players currently online.
+    pub players: Vec<Player>,
     pub player_count: usize,
+    /// Recent player join/leave events (bounded ring buffer).
+    pub player_events: Vec<PlayerEvent>,
     pub app_version: String,
     pub snapshot_at: DateTime<Utc>,
 }
@@ -150,3 +191,4 @@ impl<T: Serialize> ApiResponse<T> {
         }
     }
 }
+

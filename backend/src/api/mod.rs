@@ -1,6 +1,8 @@
+pub mod command;
 pub mod config;
 pub mod health;
 pub mod logs;
+pub mod players;
 pub mod server;
 pub mod state;
 pub mod ws;
@@ -27,6 +29,8 @@ pub fn build_router(app_state: AppState) -> Router {
         .route("/api/server/start", post(server::start))
         .route("/api/server/stop", post(server::stop))
         .route("/api/server/restart", post(server::restart))
+        // ── Server command input ─────────────────────────────────────────────
+        .route("/api/server/command", post(command::handler))
         // ── Configuration ───────────────────────────────────────────────────
         .route("/api/config/server", get(config::get_server_config))
         .route("/api/config/server", put(config::put_server_config))
@@ -34,6 +38,8 @@ pub fn build_router(app_state: AppState) -> Router {
         .route("/api/config/world", put(config::put_world_config))
         // ── Logs ────────────────────────────────────────────────────────────
         .route("/api/logs", get(logs::handler))
+        // ── Players ─────────────────────────────────────────────────────────
+        .route("/api/players", get(players::handler))
         // ── WebSocket ───────────────────────────────────────────────────────
         .route("/ws", get(ws::handler))
         // ── Middleware ──────────────────────────────────────────────────────
