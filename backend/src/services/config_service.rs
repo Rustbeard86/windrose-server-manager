@@ -78,7 +78,7 @@ pub async fn save_world_config(state: &AppState, cfg: WorldConfig) -> Result<(),
             .await
             .map_err(|e| format!("Failed to write {}: {e}", cfg_path.display()))?;
     } else {
-        warn!("No world working directory configured; config not persisted to disk");
+        warn!("No server working directory configured; config not persisted to disk");
     }
     state.set_world_config(cfg).await;
     Ok(())

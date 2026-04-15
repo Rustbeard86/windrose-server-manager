@@ -47,13 +47,15 @@ async fn main() -> anyhow::Result<()> {
 
     let listener = TcpListener::bind(socket_addr).await?;
 
+    // Width of the version column in the startup banner box.
+    const VERSION_COLUMN_WIDTH: usize = 36;
     info!(
         "╔══════════════════════════════════════════════════╗"
     );
     info!(
         "║   Windrose Server Manager v{}{}║",
         env!("CARGO_PKG_VERSION"),
-        " ".repeat(36usize.saturating_sub(env!("CARGO_PKG_VERSION").len()))
+        " ".repeat(VERSION_COLUMN_WIDTH.saturating_sub(env!("CARGO_PKG_VERSION").len()))
     );
     info!(
         "╠══════════════════════════════════════════════════╣"
