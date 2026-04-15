@@ -15,10 +15,22 @@ pub struct AppConfig {
     pub static_dir: PathBuf,
     /// Optional path to the managed game-server executable.
     pub server_executable: Option<PathBuf>,
+    /// Optional extra arguments to pass to the server executable.
+    pub server_args: Vec<String>,
     /// Optional path to the server working directory.
     pub server_working_dir: Option<PathBuf>,
+    /// Optional path to the server log file to tail.
+    ///
+    /// On Windows the log is typically `R5.log` in the server's data directory.
+    /// The manager will open this file with shared-read/shared-write access so
+    /// it can be read while the server holds it open for writing.
+    pub log_file_path: Option<PathBuf>,
     /// Maximum number of log lines held in the ring buffer.
     pub log_buffer_capacity: usize,
+    /// Seconds to wait for a graceful shutdown before force-killing the process.
+    pub server_stop_timeout_secs: u64,
+    /// Maximum number of player events retained in the ring buffer.
+    pub player_event_capacity: usize,
 }
 
 impl Default for AppConfig {
@@ -28,8 +40,12 @@ impl Default for AppConfig {
             port: 8787,
             static_dir: PathBuf::from("static"),
             server_executable: None,
+            server_args: Vec::new(),
             server_working_dir: None,
+            log_file_path: None,
             log_buffer_capacity: 500,
+            server_stop_timeout_secs: 15,
+            player_event_capacity: 200,
         }
     }
 }
