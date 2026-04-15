@@ -40,32 +40,81 @@ windrose-server-manager/
 │           ├── install.rs     – GET/POST /api/install/{detect,run}
 │           ├── update.rs      – GET /api/update, POST /api/update/check
 │           └── ws.rs          – WebSocket /ws
+├── frontend/          # React + Vite + TypeScript SPA (Phase 4)
+│   ├── src/
+│   │   ├── main.tsx           – React entry point
+│   │   ├── App.tsx            – root shell (navigation, view routing)
+│   │   ├── index.css          – design system tokens + global styles
+│   │   ├── components/        – shared components (AppHeader, StatusBadge)
+│   │   ├── hooks/             – useAppState (REST+WS hydration), useWebSocket
+│   │   ├── types/api.ts       – TypeScript types matching backend models
+│   │   ├── utils/             – api helpers, formatting
+│   │   └── views/             – per-feature panels (Dashboard, Logs, Players, Config, Operations)
+│   ├── public/                – static assets (favicon, etc.)
+│   ├── vite.config.ts         – builds to ../static/; proxies /api and /ws in dev
+│   └── package.json
 └── static/
-    └── index.html     – placeholder Windrose-themed dashboard UI
+    ├── index.html             – compiled React app (embedded into binary at build time)
+    └── assets/                – hashed CSS + JS bundles (also embedded)
 ```
+
+> **Single-binary model:** the `static/` directory is **not** read at runtime.
+> All frontend files are compiled into the binary by `rust-embed` during
+> `cargo build`.  The directory is only used as an intermediate build artefact.
 
 ---
 
 ## Prerequisites
 
 - [Rust](https://rustup.rs/) (stable, 1.75+)
+- [Node.js](https://nodejs.org/) 18+ and npm — **required at compile time** to build the frontend; not needed at runtime
 - Windows host recommended for full process-management functionality
-- No other runtime dependencies — the binary is self-contained
+- No other runtime dependencies — the resulting binary is completely self-contained
 
 ---
 
-## Running locally
+## Building the single binary
 
 ```bash
-# From the repository root
+# From the repository root — one command builds the entire chain:
+cd backend
+cargo build --release
+```
+
+When Cargo compiles the project the `build.rs` script automatically:
+1. Runs `npm ci` in `frontend/` to restore exact dependencies
+2. Runs `npm run build` (Vite) which outputs the compiled React app into `static/`
+3. `rust-embed` then bakes every file in `static/` into the binary
+
+The result is a single `.exe` / ELF binary in `backend/target/release/windrose-server-manager`
+that serves the full dashboard with **no external files needed at runtime**.
+
+```bash
+# Run the release binary from anywhere — no static/ directory required:
+./target/release/windrose-server-manager
+```
+
+The dashboard will be available at **http://127.0.0.1:8787**.
+
+### Development mode (hot-reload UI + live Rust backend)
+
+Run the Rust backend in one terminal (it re-embeds the last built frontend):
+
+```bash
 cd backend
 cargo run
 ```
 
-The backend starts on **http://127.0.0.1:8787** by default.
+In a second terminal, start the Vite dev server with hot-reload:
 
-Open [http://127.0.0.1:8787](http://127.0.0.1:8787) in your browser to see
-the placeholder dashboard.
+```bash
+cd frontend
+npm install      # first time only
+npm run dev      # → http://localhost:5173
+```
+
+All `/api` and `/ws` requests from the dev server are proxied to `127.0.0.1:8787`,
+so the full app works with instant UI hot-reload without recompiling Rust.
 
 ### Logging verbosity
 
@@ -83,7 +132,6 @@ RUST_LOG=debug cargo run
 |-------|---------|-------------|
 | `bind_address` | `127.0.0.1` | Interface to bind on (localhost only) |
 | `port` | `8787` | HTTP port |
-| `static_dir` | `static` | Path to static frontend assets |
 | `server_executable` | `None` | **Required** — path to the managed server `.exe` |
 | `server_args` | `[]` | Extra CLI arguments forwarded to the server |
 | `server_working_dir` | `None` | Server working directory (config/log files resolved here) |
@@ -385,10 +433,20 @@ cargo test
 - [x] New WS event types: backup_progress, schedule_countdown, install_progress, update_available
 - [x] README updated with Phase 3 documentation and examples
 
-### Phase 4 — frontend
-- [ ] React + Vite + Tailwind dashboard
-- [ ] Live metrics (CPU / RAM / uptime)
-- [ ] Player panel
-- [ ] Console command input
-- [ ] Config editor panels
-- [ ] Windrose-themed visual design (deep navy / gold / teal)
+### Phase 4 — browser UI (this PR) ✅
+
+- [x] React + Vite + TypeScript frontend scaffold in `frontend/`
+- [x] Windrose-inspired design system: deep navy/gold/teal palette, CSS design tokens, global styles, component primitives
+- [x] Navigation shell with animated compass-rose header and per-view routing
+- [x] Dashboard view: hero region (server name, status, uptime, invite code, quick-action controls), live player list, recent activity feed, command console, server info card
+- [x] Logs view: live scrolling log feed from WebSocket + `/api/logs`, level filter, text search, auto-scroll toggle
+- [x] Players view: online players table with session timers, player join/leave event history feed
+- [x] Config view: server config editor (name, port, max players, invite code) + world config editor (name, seed), with unsaved-changes tracking
+- [x] Operations view: Backup panel (create with label, progress bar, history list), Schedule panel (enable/configure daily restart, countdown, cancel), Update panel (version check, download link), Install/Detect panel (Steam source detection, source→destination copy)
+- [x] WebSocket integration: real-time state updates for server status, log lines, player events, backup progress, schedule countdown, install progress, update available
+- [x] REST hydration on load and on WS reconnect, graceful reconnect loop (5 s)
+- [x] Loading/error/reconnecting states
+- [x] Motion: fade-in transitions on views/rows, pulse dots for live status, slow compass spin, progress bar animations
+- [x] Build pipeline: `npm run build` outputs production bundle to `static/`; Vite dev server proxies `/api` and `/ws` to backend on port 8787
+- [x] Backend serves compiled SPA via `ServeDir` (no backend changes required for Phase 4 integration)
+- [x] README updated with Phase 4 architecture, development workflow, and build instructions

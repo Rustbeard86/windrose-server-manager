@@ -1,0 +1,204 @@
+.dashboard-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* ── Hero region ──────────────────────────────────────────────────────── */
+.hero-region {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem 2rem;
+  background: linear-gradient(
+    135deg,
+    rgba(13, 21, 37, 0.95) 0%,
+    rgba(10, 16, 30, 0.9) 100%
+  );
+  border-color: var(--border-gold);
+  box-shadow: var(--shadow-gold), var(--shadow-md);
+  flex-wrap: wrap;
+}
+
+.hero-left {
+  flex: 1;
+  min-width: 200px;
+}
+
+.hero-server-name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: 0.02em;
+  margin-bottom: 0.5rem;
+  text-shadow: 0 0 30px rgba(201,168,76,0.2);
+}
+
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.hero-invite-code {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+}
+
+.hero-invite-code code {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.hero-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.hero-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.hero-controls {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Update banner ────────────────────────────────────────────────────── */
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: var(--warning-dim);
+  border: 1px solid rgba(212,154,42,0.3);
+  border-radius: var(--radius-md);
+  color: var(--warning);
+  font-size: 0.85rem;
+}
+
+/* ── Dashboard grid ───────────────────────────────────────────────────── */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.25rem;
+}
+
+.dashboard-card {
+  padding: 1.25rem 1.5rem;
+}
+
+/* ── Command form ─────────────────────────────────────────────────────── */
+.cmd-form {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.cmd-result {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+  font-family: var(--font-mono);
+  animation: fade-in 0.2s ease both;
+}
+
+/* ── Activity feed ────────────────────────────────────────────────────── */
+.activity-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.activity-name {
+  flex: 1;
+  font-weight: 500;
+  truncate: true;
+}
+
+.activity-kind {
+  font-size: 0.72rem;
+  text-transform: capitalize;
+  letter-spacing: 0.04em;
+}
+
+.activity-time {
+  font-size: 0.7rem;
+  flex-shrink: 0;
+}
+
+/* ── Player list ──────────────────────────────────────────────────────── */
+.player-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.player-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.player-name {
+  flex: 1;
+}
+
+.player-since {
+  font-size: 0.72rem;
+}
+
+/* ── Info list ────────────────────────────────────────────────────────── */
+.info-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.4rem 1rem;
+  font-size: 0.83rem;
+}
+
+.info-list dt {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding-top: 2px;
+}
+
+.info-list dd {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  word-break: break-all;
+}

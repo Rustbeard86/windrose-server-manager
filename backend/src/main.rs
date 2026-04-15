@@ -1,5 +1,6 @@
 mod api;
 mod config;
+mod embedded;
 mod models;
 mod process;
 mod services;
@@ -7,11 +8,11 @@ mod state;
 
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
-use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
 use crate::config::AppConfig;
+use crate::embedded::EmbeddedAssetsService;
 use crate::services::{log_service, schedule_service};
 use crate::state::AppState;
 
@@ -32,7 +33,6 @@ async fn main() -> anyhow::Result<()> {
         .parse()
         .expect("Invalid bind address");
 
-    let static_dir = app_config.static_dir.clone();
     let log_file_path = app_config.log_file_path.clone();
     let app_state = AppState::new(app_config);
 
@@ -53,13 +53,11 @@ async fn main() -> anyhow::Result<()> {
     // Build the API router.
     let api_router = api::build_router(app_state.clone());
 
-    // Compose: API routes + static file serving from ./static (with index.html
-    // fallback for SPA routing).
+    // Compose: API routes + embedded frontend assets (SPA fallback).
+    // The frontend is baked into the binary at compile time via rust-embed;
+    // no external `static/` directory is required at runtime.
     let app = api_router
-        .fallback_service(
-            ServeDir::new(&static_dir)
-                .append_index_html_on_directories(true),
-        )
+        .fallback_service(EmbeddedAssetsService)
         .layer(TraceLayer::new_for_http());
 
     let listener = TcpListener::bind(socket_addr).await?;

@@ -1,0 +1,127 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(14px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+/* ── Logo ─────────────────────────────────────────────────────────────── */
+.header-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.compass-rose {
+  width: 36px;
+  height: 36px;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.logo-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.logo-subtitle {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ── Navigation ───────────────────────────────────────────────────────── */
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex: 1;
+  margin: 0 1.5rem;
+  overflow-x: auto;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition:
+    color var(--transition-fast),
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+  white-space: nowrap;
+}
+
+.nav-item:hover {
+  color: var(--text);
+  background: rgba(100,140,180,0.08);
+}
+
+.nav-item--active {
+  color: var(--teal);
+  border-color: var(--border-teal);
+  background: var(--teal-dim);
+}
+
+.nav-icon {
+  font-size: 0.9rem;
+}
+
+/* ── Connection pill ─────────────────────────────────────────────────── */
+.connection-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  transition: border-color var(--transition-normal);
+}
+
+.connection-pill--online {
+  border-color: rgba(74,184,200,0.3);
+}
+
+.connection-label {
+  color: var(--text-muted);
+}
+
+.connection-version {
+  color: var(--text-faint);
+  padding-left: 0.3rem;
+  border-left: 1px solid var(--border);
+  margin-left: 0.15rem;
+}
+
+@media (max-width: 640px) {
+  .nav-label   { display: none; }
+  .header-nav  { margin: 0 0.5rem; }
+  .connection-version { display: none; }
+}

@@ -11,8 +11,6 @@ pub struct AppConfig {
     pub bind_address: String,
     /// Port to listen on.
     pub port: u16,
-    /// Directory from which static frontend assets are served.
-    pub static_dir: PathBuf,
     /// Optional path to the managed game-server executable.
     pub server_executable: Option<PathBuf>,
     /// Optional extra arguments to pass to the server executable.
@@ -49,7 +47,6 @@ impl Default for AppConfig {
         Self {
             bind_address: "127.0.0.1".to_string(),
             port: 8787,
-            static_dir: PathBuf::from("static"),
             server_executable: None,
             server_args: Vec::new(),
             server_working_dir: None,
