@@ -1,10 +1,15 @@
+pub mod backup;
 pub mod command;
 pub mod config;
 pub mod health;
+pub mod history;
+pub mod install;
 pub mod logs;
 pub mod players;
+pub mod schedule;
 pub mod server;
 pub mod state;
+pub mod update;
 pub mod ws;
 
 use axum::{Router, routing::{get, post, put}};
@@ -40,6 +45,22 @@ pub fn build_router(app_state: AppState) -> Router {
         .route("/api/logs", get(logs::handler))
         // ── Players ─────────────────────────────────────────────────────────
         .route("/api/players", get(players::handler))
+        // ── Player / event history ───────────────────────────────────────────
+        .route("/api/history/players", get(history::player_events))
+        // ── Backup ──────────────────────────────────────────────────────────
+        .route("/api/backup", get(backup::get_status))
+        .route("/api/backup/create", post(backup::create))
+        // ── Scheduled restart ────────────────────────────────────────────────
+        .route("/api/schedule", get(schedule::get))
+        .route("/api/schedule", put(schedule::put))
+        .route("/api/schedule/cancel", post(schedule::cancel))
+        // ── Install / detect ─────────────────────────────────────────────────
+        .route("/api/install", get(install::get_status))
+        .route("/api/install/detect", post(install::detect))
+        .route("/api/install/run", post(install::run))
+        // ── App update check ─────────────────────────────────────────────────
+        .route("/api/update", get(update::get_status))
+        .route("/api/update/check", post(update::check))
         // ── WebSocket ───────────────────────────────────────────────────────
         .route("/ws", get(ws::handler))
         // ── Middleware ──────────────────────────────────────────────────────

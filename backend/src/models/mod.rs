@@ -114,6 +114,14 @@ pub struct AppStateSnapshot {
     pub player_events: Vec<PlayerEvent>,
     pub app_version: String,
     pub snapshot_at: DateTime<Utc>,
+    /// Backup subsystem status.
+    pub backup: BackupStatus,
+    /// Scheduled-restart configuration and runtime state.
+    pub schedule: ScheduleState,
+    /// Install / source-detect subsystem state.
+    pub install: InstallState,
+    /// App-update check state.
+    pub update: UpdateState,
 }
 
 // ---------------------------------------------------------------------------
@@ -141,6 +149,158 @@ pub enum LogLevel {
 }
 
 // ---------------------------------------------------------------------------
+// Backup models
+// ---------------------------------------------------------------------------
+
+/// Job state for a running or recently-completed backup.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum BackupJobState {
+    #[default]
+    Idle,
+    Running,
+    Done,
+    Failed,
+}
+
+/// Metadata for a completed backup artifact.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupEntry {
+    /// Unique identifier for this backup.
+    pub id: String,
+    pub created_at: DateTime<Utc>,
+    /// Filesystem path to the backup directory or archive.
+    pub path: String,
+    /// Total bytes copied.
+    pub size_bytes: u64,
+    /// Optional human-readable label.
+    pub label: Option<String>,
+}
+
+/// Current backup subsystem status (job state + history).
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct BackupStatus {
+    pub job_state: BackupJobState,
+    pub progress_pct: Option<u8>,
+    pub current_file: Option<String>,
+    /// Completed backup entries, oldest first.
+    pub history: Vec<BackupEntry>,
+    pub last_error: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Schedule models
+// ---------------------------------------------------------------------------
+
+/// Configuration for the daily scheduled-restart feature.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScheduleConfig {
+    /// Whether scheduled restarts are enabled.
+    pub enabled: bool,
+    /// Hour of day (0–23) to initiate the restart sequence.
+    pub restart_hour: u8,
+    /// Minute (0–59) to initiate the restart sequence.
+    pub restart_minute: u8,
+    /// Seconds of warning countdown before the restart fires.
+    pub warning_seconds: u64,
+}
+
+impl Default for ScheduleConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            restart_hour: 4,
+            restart_minute: 0,
+            warning_seconds: 60,
+        }
+    }
+}
+
+/// Runtime state of the scheduler.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct ScheduleState {
+    pub config: ScheduleConfig,
+    /// Whether a warning countdown is currently in progress.
+    pub countdown_active: bool,
+    /// Seconds remaining in the current countdown (if active).
+    pub countdown_seconds_remaining: Option<u64>,
+    /// ISO date string (`YYYY-MM-DD`) of the last day a restart fired,
+    /// used to prevent double-firing within the same daily window.
+    pub last_restart_date: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Install / detect models
+// ---------------------------------------------------------------------------
+
+/// Job state for an in-progress install or detect operation.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum InstallJobState {
+    #[default]
+    Idle,
+    Detecting,
+    Detected,
+    Installing,
+    Done,
+    Failed,
+}
+
+/// State of the install / source-detect subsystem.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct InstallState {
+    pub job_state: InstallJobState,
+    pub progress_pct: Option<u8>,
+    pub current_file: Option<String>,
+    /// Filesystem paths that look like valid Windrose source installs.
+    pub detected_sources: Vec<String>,
+    /// Destination path for the most recent or in-progress install.
+    pub destination: Option<String>,
+    pub last_error: Option<String>,
+}
+
+// ---------------------------------------------------------------------------
+// Update models
+// ---------------------------------------------------------------------------
+
+/// State of the app-update check.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateCheckState {
+    #[default]
+    Idle,
+    Checking,
+    Done,
+    Failed,
+}
+
+/// State of the manager-app update subsystem.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateState {
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub update_available: bool,
+    pub last_checked_at: Option<DateTime<Utc>>,
+    pub check_state: UpdateCheckState,
+    pub release_notes: Option<String>,
+    pub download_url: Option<String>,
+}
+
+impl Default for UpdateState {
+    fn default() -> Self {
+        Self {
+            current_version: env!("CARGO_PKG_VERSION").to_string(),
+            latest_version: None,
+            update_available: false,
+            last_checked_at: None,
+            check_state: UpdateCheckState::Idle,
+            release_notes: None,
+            download_url: None,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // WebSocket event envelope
 // ---------------------------------------------------------------------------
 
@@ -160,6 +320,30 @@ pub enum WsEvent {
     Notification { level: String, message: String },
     /// Periodic ping to keep connections alive.
     Ping,
+    /// Backup job progress or completion.
+    BackupProgress {
+        job_state: String,
+        progress_pct: Option<u8>,
+        current_file: Option<String>,
+        entry: Option<BackupEntry>,
+    },
+    /// Scheduled-restart countdown tick or cancellation.
+    ScheduleCountdown {
+        seconds_remaining: u64,
+        cancelled: bool,
+    },
+    /// Install / copy job progress.
+    InstallProgress {
+        job_state: String,
+        progress_pct: Option<u8>,
+        current_file: Option<String>,
+    },
+    /// Update check result: a newer version is available.
+    UpdateAvailable {
+        current_version: String,
+        latest_version: String,
+        download_url: Option<String>,
+    },
 }
 
 // ---------------------------------------------------------------------------

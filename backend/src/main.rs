@@ -12,7 +12,7 @@ use tower_http::trace::TraceLayer;
 use tracing::info;
 
 use crate::config::AppConfig;
-use crate::services::log_service;
+use crate::services::{log_service, schedule_service};
 use crate::state::AppState;
 
 #[tokio::main]
@@ -36,6 +36,9 @@ async fn main() -> anyhow::Result<()> {
     let log_file_path = app_config.log_file_path.clone();
     let app_state = AppState::new(app_config);
 
+    // Load persisted player-event history (if history_file_path is configured).
+    app_state.load_history().await;
+
     // Start log-tailing background task if a log file path is configured.
     if let Some(log_path) = log_file_path {
         info!(path = %log_path.display(), "Log tail enabled");
@@ -43,6 +46,9 @@ async fn main() -> anyhow::Result<()> {
     } else {
         info!("No log_file_path configured — log tailing disabled");
     }
+
+    // Start the scheduled-restart background task.
+    schedule_service::start_scheduler(app_state.clone());
 
     // Build the API router.
     let api_router = api::build_router(app_state.clone());
