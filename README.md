@@ -40,8 +40,22 @@ windrose-server-manager/
 │           ├── install.rs     – GET/POST /api/install/{detect,run}
 │           ├── update.rs      – GET /api/update, POST /api/update/check
 │           └── ws.rs          – WebSocket /ws
+├── frontend/          # React + Vite + TypeScript SPA (Phase 4)
+│   ├── src/
+│   │   ├── main.tsx           – React entry point
+│   │   ├── App.tsx            – root shell (navigation, view routing)
+│   │   ├── index.css          – design system tokens + global styles
+│   │   ├── components/        – shared components (AppHeader, StatusBadge)
+│   │   ├── hooks/             – useAppState (REST+WS hydration), useWebSocket
+│   │   ├── types/api.ts       – TypeScript types matching backend models
+│   │   ├── utils/             – api helpers, formatting
+│   │   └── views/             – per-feature panels (Dashboard, Logs, Players, Config, Operations)
+│   ├── public/                – static assets (favicon, etc.)
+│   ├── vite.config.ts         – builds to ../static/; proxies /api and /ws in dev
+│   └── package.json
 └── static/
-    └── index.html     – placeholder Windrose-themed dashboard UI
+    ├── index.html             – compiled React app (production build artifact)
+    └── assets/                – hashed CSS + JS bundles
 ```
 
 ---
@@ -49,12 +63,15 @@ windrose-server-manager/
 ## Prerequisites
 
 - [Rust](https://rustup.rs/) (stable, 1.75+)
+- [Node.js](https://nodejs.org/) 18+ and npm (for frontend development)
 - Windows host recommended for full process-management functionality
 - No other runtime dependencies — the binary is self-contained
 
 ---
 
 ## Running locally
+
+### Backend + compiled frontend (production mode)
 
 ```bash
 # From the repository root
@@ -63,9 +80,39 @@ cargo run
 ```
 
 The backend starts on **http://127.0.0.1:8787** by default.
+Open [http://127.0.0.1:8787](http://127.0.0.1:8787) in your browser to use
+the Windrose Server Manager dashboard.
 
-Open [http://127.0.0.1:8787](http://127.0.0.1:8787) in your browser to see
-the placeholder dashboard.
+### Frontend development (hot-reload)
+
+Run the backend in one terminal:
+
+```bash
+cd backend
+cargo run
+```
+
+Then in a second terminal, start the Vite dev server:
+
+```bash
+cd frontend
+npm install      # first time only
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173). All `/api` and `/ws` requests are
+proxied to the backend at `127.0.0.1:8787`, so the full app works with hot-reload.
+
+### Building the frontend for production
+
+```bash
+cd frontend
+npm run build
+```
+
+This compiles and bundles the React app into `static/` (the directory the
+Rust backend serves). After building, `cargo run` from `backend/` will serve
+the compiled dashboard.
 
 ### Logging verbosity
 
@@ -385,10 +432,20 @@ cargo test
 - [x] New WS event types: backup_progress, schedule_countdown, install_progress, update_available
 - [x] README updated with Phase 3 documentation and examples
 
-### Phase 4 — frontend
-- [ ] React + Vite + Tailwind dashboard
-- [ ] Live metrics (CPU / RAM / uptime)
-- [ ] Player panel
-- [ ] Console command input
-- [ ] Config editor panels
-- [ ] Windrose-themed visual design (deep navy / gold / teal)
+### Phase 4 — browser UI (this PR) ✅
+
+- [x] React + Vite + TypeScript frontend scaffold in `frontend/`
+- [x] Windrose-inspired design system: deep navy/gold/teal palette, CSS design tokens, global styles, component primitives
+- [x] Navigation shell with animated compass-rose header and per-view routing
+- [x] Dashboard view: hero region (server name, status, uptime, invite code, quick-action controls), live player list, recent activity feed, command console, server info card
+- [x] Logs view: live scrolling log feed from WebSocket + `/api/logs`, level filter, text search, auto-scroll toggle
+- [x] Players view: online players table with session timers, player join/leave event history feed
+- [x] Config view: server config editor (name, port, max players, invite code) + world config editor (name, seed), with unsaved-changes tracking
+- [x] Operations view: Backup panel (create with label, progress bar, history list), Schedule panel (enable/configure daily restart, countdown, cancel), Update panel (version check, download link), Install/Detect panel (Steam source detection, source→destination copy)
+- [x] WebSocket integration: real-time state updates for server status, log lines, player events, backup progress, schedule countdown, install progress, update available
+- [x] REST hydration on load and on WS reconnect, graceful reconnect loop (5 s)
+- [x] Loading/error/reconnecting states
+- [x] Motion: fade-in transitions on views/rows, pulse dots for live status, slow compass spin, progress bar animations
+- [x] Build pipeline: `npm run build` outputs production bundle to `static/`; Vite dev server proxies `/api` and `/ws` to backend on port 8787
+- [x] Backend serves compiled SPA via `ServeDir` (no backend changes required for Phase 4 integration)
+- [x] README updated with Phase 4 architecture, development workflow, and build instructions

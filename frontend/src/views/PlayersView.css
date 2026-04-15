@@ -1,0 +1,72 @@
+.players-view {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .players-view { grid-template-columns: 1fr; }
+}
+
+.players-card {
+  padding: 1.25rem 1.5rem;
+}
+
+/* ── Table ────────────────────────────────────────────────────────────── */
+.player-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+.player-table th {
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+
+.player-table td {
+  padding: 0.55rem 0.5rem;
+  border-bottom: 1px solid rgba(100,140,180,0.07);
+  vertical-align: middle;
+}
+
+.player-tbl-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+/* ── History ──────────────────────────────────────────────────────────── */
+.player-history {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  padding: 3px 0;
+}
+
+.history-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.history-time {
+  font-size: 0.72rem;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}

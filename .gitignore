@@ -12,7 +12,8 @@
 .env
 .env.local
 
-# Future: Node / frontend build artifacts
+# Node / frontend build artifacts
 node_modules/
+frontend/node_modules/
 dist/
 .svelte-kit/

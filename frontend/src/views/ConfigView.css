@@ -1,0 +1,74 @@
+.config-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.config-status {
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.83rem;
+  animation: fade-in 0.2s ease both;
+}
+
+.config-status--ok  { background: var(--success-dim); border: 1px solid rgba(76,175,130,0.3); color: var(--success); }
+.config-status--err { background: var(--danger-dim);  border: 1px solid rgba(200,74,74,0.3);  color: var(--danger); }
+
+.config-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 768px) {
+  .config-grid { grid-template-columns: 1fr; }
+}
+
+.config-panel {
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Fields ──────────────────────────────────────────────────────────── */
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+}
+
+.field-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* ── Actions ─────────────────────────────────────────────────────────── */
+.config-actions {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+}
+
+/* ── Dirty badge ─────────────────────────────────────────────────────── */
+.dirty-badge {
+  margin-left: auto;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--warning-dim);
+  color: var(--warning);
+  border: 1px solid rgba(212,154,42,0.3);
+}
