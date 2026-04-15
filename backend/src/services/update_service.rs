@@ -78,7 +78,7 @@ async fn run_update_check(state: AppState) {
     match fetch_latest_release(&url).await {
         Ok(release) => {
             let latest = normalise_version(&release.tag_name);
-            let update_available = latest != normalise_version(&current_version);
+            let update_available = is_newer_version(&current_version, &release.tag_name);
             let download_url = release.html_url;
             let release_notes = release.body;
 
@@ -111,6 +111,34 @@ async fn run_update_check(state: AppState) {
 /// Strip a leading `v` from a version string for comparison purposes.
 fn normalise_version(v: &str) -> String {
     v.trim_start_matches('v').to_string()
+}
+
+/// Returns `true` if `latest` is strictly newer than `current` according to
+/// a simple `MAJOR.MINOR.PATCH` comparison.  Falls back to string inequality
+/// for non-standard version strings (pre-release suffixes, etc.).
+///
+/// This avoids false positives like `"0.10.0" > "0.9.0"` being reported
+/// incorrectly by a pure lexicographic string comparison.
+fn is_newer_version(current: &str, latest: &str) -> bool {
+    let parse_semver = |v: &str| -> Option<(u32, u32, u32)> {
+        // Accept an optional leading `v` and strip pre-release suffixes.
+        let v = v.trim_start_matches('v');
+        let base = v.split('-').next().unwrap_or(v);
+        let parts: Vec<&str> = base.split('.').collect();
+        if parts.len() < 3 {
+            return None;
+        }
+        let major = parts[0].parse::<u32>().ok()?;
+        let minor = parts[1].parse::<u32>().ok()?;
+        let patch = parts[2].parse::<u32>().ok()?;
+        Some((major, minor, patch))
+    };
+
+    match (parse_semver(current), parse_semver(latest)) {
+        (Some(cur), Some(lat)) => lat > cur,
+        // Fall back to string inequality as a safe default.
+        _ => normalise_version(latest) != normalise_version(current),
+    }
 }
 
 /// Perform the HTTP GET and deserialise the GitHub release JSON.
@@ -164,12 +192,23 @@ mod tests {
     }
 
     #[test]
-    fn update_detected_when_versions_differ() {
-        assert_ne!(normalise_version("v0.2.0"), normalise_version("0.1.0"));
+    fn update_detected_when_latest_is_newer() {
+        assert!(is_newer_version("0.1.0", "0.2.0"));
+        assert!(is_newer_version("0.1.0", "v0.2.0"));
+        assert!(is_newer_version("0.9.0", "0.10.0")); // catches lexicographic bug
+        assert!(is_newer_version("1.0.0", "2.0.0"));
     }
 
     #[test]
     fn no_update_when_versions_match() {
-        assert_eq!(normalise_version("v0.1.0"), normalise_version("0.1.0"));
+        assert!(!is_newer_version("0.1.0", "v0.1.0"));
+        assert!(!is_newer_version("0.1.0", "0.1.0"));
+    }
+
+    #[test]
+    fn no_update_when_current_is_newer() {
+        // Edge case: local build is ahead of published release.
+        assert!(!is_newer_version("0.2.0", "0.1.0"));
+        assert!(!is_newer_version("0.10.0", "0.9.0"));
     }
 }
