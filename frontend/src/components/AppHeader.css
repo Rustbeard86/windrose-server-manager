@@ -90,6 +90,17 @@
   font-size: 0.9rem;
 }
 
+.nav-item--setup {
+  margin-left: auto;
+  color: var(--text-faint);
+  font-size: 0.74rem;
+}
+
+.nav-item--setup:hover {
+  color: var(--gold);
+  background: var(--gold-glow);
+}
+
 /* ── Connection pill ─────────────────────────────────────────────────── */
 .connection-pill {
   display: flex;

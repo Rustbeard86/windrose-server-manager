@@ -8,6 +8,7 @@ interface AppHeaderProps {
   appVersion?: string
   activeView: string
   onViewChange: (view: string) => void
+  onReRunSetup?: () => void
 }
 
 const NAV_ITEMS = [
@@ -24,6 +25,7 @@ export function AppHeader({
   appVersion,
   activeView,
   onViewChange,
+  onReRunSetup,
 }: AppHeaderProps) {
   const isOnline = wsStatus === 'connected' && connectionStatus === 'connected'
 
@@ -64,6 +66,14 @@ export function AppHeader({
           </button>
         ))}
       </nav>
+
+      {/* Re-run setup */}
+      {onReRunSetup && (
+        <button className="nav-item nav-item--setup" onClick={onReRunSetup} title="Re-run Setup Wizard">
+          <span className="nav-icon">🧭</span>
+          <span className="nav-label">Setup</span>
+        </button>
+      )}
 
       {/* Status pill */}
       <div className={`connection-pill ${isOnline ? 'connection-pill--online' : 'connection-pill--offline'}`}>

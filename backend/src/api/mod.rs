@@ -8,7 +8,9 @@ pub mod logs;
 pub mod players;
 pub mod schedule;
 pub mod server;
+pub mod setup;
 pub mod state;
+pub mod stats;
 pub mod update;
 pub mod ws;
 
@@ -33,14 +35,23 @@ pub fn build_router(app_state: AppState) -> Router {
         // ── Server lifecycle ────────────────────────────────────────────────
         .route("/api/server/start", post(server::start))
         .route("/api/server/stop", post(server::stop))
-        .route("/api/server/restart", post(server::restart))
-        // ── Server command input ─────────────────────────────────────────────
+        .route("/api/server/restart", post(server::restart))        // ── Server stats ───────────────────────────────────────────
+        .route("/api/server/stats", get(stats::get))        // ── Server command input ─────────────────────────────────────────────
         .route("/api/server/command", post(command::handler))
         // ── Configuration ───────────────────────────────────────────────────
         .route("/api/config/server", get(config::get_server_config))
         .route("/api/config/server", put(config::put_server_config))
         .route("/api/config/world", get(config::get_world_config))
         .route("/api/config/world", put(config::put_world_config))
+        // ── Config file management ──────────────────────────────────────────
+        .route("/api/config/files", get(config::list_files))
+        .route("/api/config/file", get(config::get_file))
+        .route("/api/config/file", put(config::put_file))
+        .route("/api/config/file/validate", post(config::validate_file))
+        .route("/api/config/file/mtime", get(config::get_file_mtime))
+        // ── Setup / FTUE ─────────────────────────────────────────────────────
+        .route("/api/setup/status", get(setup::status))
+        .route("/api/setup/config", put(setup::apply))
         // ── Logs ────────────────────────────────────────────────────────────
         .route("/api/logs", get(logs::handler))
         // ── Players ─────────────────────────────────────────────────────────
@@ -61,6 +72,7 @@ pub fn build_router(app_state: AppState) -> Router {
         // ── App update check ─────────────────────────────────────────────────
         .route("/api/update", get(update::get_status))
         .route("/api/update/check", post(update::check))
+        .route("/api/update/apply", post(update::apply))
         // ── WebSocket ───────────────────────────────────────────────────────
         .route("/ws", get(ws::handler))
         // ── Middleware ──────────────────────────────────────────────────────

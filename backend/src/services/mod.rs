@@ -1,8 +1,10 @@
 pub mod backup_service;
+pub mod config_file_service;
 pub mod config_service;
 pub mod install_service;
 pub mod log_service;
 pub mod player_service;
 pub mod schedule_service;
 pub mod server_service;
+pub mod stats_service;
 pub mod update_service;

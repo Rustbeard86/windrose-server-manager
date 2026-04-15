@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppState } from './hooks/useAppState'
 import { AppHeader } from './components/AppHeader'
 import { DashboardView } from './views/DashboardView'
@@ -6,14 +6,59 @@ import { LogsView } from './views/LogsView'
 import { PlayersView } from './views/PlayersView'
 import { ConfigView } from './views/ConfigView'
 import { OperationsView } from './views/OperationsView'
+import { SetupWizard } from './views/SetupWizard'
+import type { SetupStatus } from './types/api'
+import { apiGet } from './utils/api'
 import './App.css'
 
 type ViewId = 'dashboard' | 'logs' | 'players' | 'config' | 'operations'
 
 export default function App() {
   const [activeView, setActiveView] = useState<ViewId>('dashboard')
+  const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null)
+  const [forceSetup, setForceSetup] = useState(false)
   const { state, connectionStatus, wsStatus, liveLogLines, livePlayerEvents, reload } =
     useAppState()
+
+  useEffect(() => {
+    async function checkSetup() {
+      try {
+        const res = await apiGet<SetupStatus>('/api/setup/status')
+        if (res.success && res.data) {
+          setSetupNeeded(res.data.needs_setup)
+        } else {
+          setSetupNeeded(false)
+        }
+      } catch {
+        setSetupNeeded(false)
+      }
+    }
+    checkSetup()
+  }, [])
+
+  function handleSetupComplete() {
+    setSetupNeeded(false)
+    setForceSetup(false)
+    reload()
+  }
+
+  function handleReRunSetup() {
+    setForceSetup(true)
+  }
+
+  if (setupNeeded === null) {
+    return (
+      <div className="app-shell">
+        <div className="loading-state">
+          <p className="loading-msg">Checking configuration…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (setupNeeded || forceSetup) {
+    return <SetupWizard onComplete={handleSetupComplete} />
+  }
 
   function renderView() {
     if (!state) {
@@ -69,6 +114,7 @@ export default function App() {
         appVersion={state?.app_version}
         activeView={activeView}
         onViewChange={(v) => setActiveView(v as ViewId)}
+        onReRunSetup={handleReRunSetup}
       />
       <main className="app-main">
         <div className="view-container">{renderView()}</div>

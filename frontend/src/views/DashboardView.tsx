@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { AppStateSnapshot } from '../types/api'
+import type { AppStateSnapshot, ServerStats } from '../types/api'
 import { apiPost } from '../utils/api'
 import { formatUptime, formatDateTime } from '../utils/format'
 import { StatusBadge } from '../components/StatusBadge'
@@ -240,6 +240,115 @@ export function DashboardView({ state, onReload }: DashboardViewProps) {
           </dl>
         </div>
       </div>
+
+      {/* ── Stats panel ─────────────────────────────────────────────────── */}
+      {state.server_stats && <StatsPanel stats={state.server_stats} />}
     </div>
+  )
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1_073_741_824) return `${(bytes / 1_073_741_824).toFixed(1)} GB`
+  if (bytes >= 1_048_576) return `${(bytes / 1_048_576).toFixed(0)} MB`
+  if (bytes >= 1_024) return `${(bytes / 1_024).toFixed(0)} KB`
+  return `${bytes} B`
+}
+
+// ── StatsPanel ────────────────────────────────────────────────────────────────
+
+const GAUGE_R = 38
+const GAUGE_CIRC = 2 * Math.PI * GAUGE_R
+
+function gaugeColor(pct: number): string {
+  if (pct >= 80) return 'var(--danger)'
+  if (pct >= 50) return 'var(--warning)'
+  return 'var(--teal)'
+}
+
+interface GaugeProps {
+  label: string
+  value: number   // 0-100
+  display: string // text shown in centre
+  unit?: string
+}
+
+function CircleGauge({ label, value, display, unit }: GaugeProps) {
+  const pct = Math.max(0, Math.min(100, value))
+  const offset = GAUGE_CIRC * (1 - pct / 100)
+  const color = gaugeColor(pct)
+  return (
+    <div className="stats-gauge">
+      <svg viewBox="0 0 100 100" className="gauge-svg">
+        {/* background track */}
+        <circle cx="50" cy="50" r={GAUGE_R} fill="none" stroke="var(--bg)" strokeWidth="11" />
+        {/* value arc */}
+        <circle
+          cx="50" cy="50" r={GAUGE_R}
+          fill="none"
+          stroke={color}
+          strokeWidth="11"
+          strokeDasharray={`${GAUGE_CIRC} ${GAUGE_CIRC}`}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          transform="rotate(-90 50 50)"
+        />
+      </svg>
+      <div className="gauge-center">
+        <span className="gauge-value" style={{ color }}>{display}</span>
+        {unit && <span className="gauge-unit">{unit}</span>}
+      </div>
+      <div className="gauge-label">{label}</div>
+    </div>
+  )
+}
+
+function StatsPanel({ stats }: { stats: ServerStats }) {
+  const cpuPct = stats.cpu_percent
+  const ramPct = stats.memory_total_bytes > 0
+    ? (stats.memory_bytes / stats.memory_total_bytes) * 100
+    : 0
+
+  return (
+    <section className="card stats-panel">
+      <div className="panel-title" style={{ marginBottom: '1rem' }}>
+        <span className="panel-title-icon">📊</span>
+        Resource Usage
+        <span className="text-faint" style={{ marginLeft: 'auto', fontSize: '0.72rem' }}>
+          live · process
+        </span>
+      </div>
+      <div className="stats-grid">
+        {/* CPU gauge */}
+        <CircleGauge
+          label="CPU"
+          value={cpuPct}
+          display={cpuPct.toFixed(1)}
+          unit="%"
+        />
+        {/* RAM gauge */}
+        <CircleGauge
+          label="RAM"
+          value={ramPct}
+          display={formatBytes(stats.memory_bytes).replace(' ', '\u00a0')}
+        />
+        {/* Disk */}
+        <div className="stats-text-card">
+          <div className="stats-text-value">{formatBytes(stats.disk_used_bytes)}</div>
+          <div className="stats-text-label">Disk (server folder)</div>
+        </div>
+        {/* Network */}
+        <div className="stats-text-card">
+          <div className="stats-text-value">
+            ↓ {formatBytes(stats.net_rx_bytes_per_sec)}/s
+          </div>
+          <div className="stats-text-value">
+            ↑ {formatBytes(stats.net_tx_bytes_per_sec)}/s
+          </div>
+          <div className="stats-text-label">Network (system)</div>
+        </div>
+      </div>
+    </section>
   )
 }

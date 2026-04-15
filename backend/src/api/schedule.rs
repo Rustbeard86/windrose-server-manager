@@ -33,7 +33,18 @@ pub async fn put(
         );
     }
 
-    app.set_schedule_config(cfg).await;
+    app.set_schedule_config(cfg.clone()).await;
+
+    // Persist schedule settings to the config file.
+    let mut disk_cfg = (*app.config).clone();
+    disk_cfg.schedule_enabled = cfg.enabled;
+    disk_cfg.schedule_restart_hour = cfg.restart_hour;
+    disk_cfg.schedule_restart_minute = cfg.restart_minute;
+    disk_cfg.schedule_warning_seconds = cfg.warning_seconds;
+    if let Err(e) = disk_cfg.save() {
+        tracing::warn!("Failed to persist schedule config: {e}");
+    }
+
     (
         StatusCode::OK,
         Json(ApiResponse::ok(app.get_schedule_state().await)),

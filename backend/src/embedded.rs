@@ -117,28 +117,24 @@ impl<B> Service<Request<B>> for EmbeddedAssetsService {
     }
 
     fn call(&mut self, req: Request<B>) -> Self::Future {
-        // Strip the leading `/` and decode percent-encoding.
         let raw_path = req.uri().path();
-        let asset_path = raw_path.trim_start_matches('/');
-        // Normalise empty path → index.html
-        let asset_path = if asset_path.is_empty() {
-            "index.html"
-        } else {
-            asset_path
-        };
+        let raw_asset_path = raw_path.trim_start_matches('/');
+        // Track whether this was a root request so we don't misclassify
+        // the normalised "index.html" path as a missing static asset.
+        let is_root = raw_asset_path.is_empty();
+        let asset_path = if is_root { "index.html" } else { raw_asset_path };
 
         let response = if let Some(resp) = serve_embedded(asset_path) {
-            // Found a matching embedded file.
             resp
-        } else if is_static_asset(asset_path) {
-            // Looks like a specific asset file that wasn't found — 404.
+        } else if !is_root && is_static_asset(asset_path) {
+            // A specific static asset was requested and not found — 404.
             Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .body(Body::from("Not found"))
                 .expect("valid response")
         } else {
-            // Unknown path: SPA fallback — serve index.html so client-side
-            // routing can handle it.
+            // Unknown path or root: SPA fallback — serve index.html so
+            // client-side routing can handle it.
             serve_embedded("index.html").unwrap_or_else(|| {
                 Response::builder()
                     .status(StatusCode::INTERNAL_SERVER_ERROR)

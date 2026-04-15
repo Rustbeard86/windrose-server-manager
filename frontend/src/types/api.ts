@@ -91,6 +91,7 @@ export interface InstallState {
 }
 
 export type UpdateCheckState = 'idle' | 'checking' | 'done' | 'failed'
+export type UpdateApplyState = 'idle' | 'downloading' | 'applying' | 'pending_restart' | 'failed'
 
 export interface UpdateState {
   current_version: string
@@ -98,8 +99,25 @@ export interface UpdateState {
   update_available: boolean
   last_checked_at: string | null
   check_state: UpdateCheckState
+  apply_state: UpdateApplyState
   release_notes: string | null
   download_url: string | null
+}
+
+export interface ServerStats {
+  /** Process CPU usage 0–100 %, normalised across all logical CPUs. */
+  cpu_percent: number
+  /** Process resident-set size in bytes. */
+  memory_bytes: number
+  /** System total physical memory in bytes. */
+  memory_total_bytes: number
+  /** Cumulative size of all files under the server folder, in bytes. */
+  disk_used_bytes: number
+  /** System-wide network receive bytes since last sample. */
+  net_rx_bytes_per_sec: number
+  /** System-wide network transmit bytes since last sample. */
+  net_tx_bytes_per_sec: number
+  collected_at: string
 }
 
 export interface AppStateSnapshot {
@@ -116,12 +134,82 @@ export interface AppStateSnapshot {
   schedule: ScheduleState
   install: InstallState
   update: UpdateState
+  /** `true` when a server executable path is configured and the file exists. */
+  server_configured: boolean
+  /** Live resource stats; `null` when the server is not running. */
+  server_stats: ServerStats | null
 }
 
 export interface ApiResponse<T> {
   success: boolean
   data: T | null
   message: string | null
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Setup / FTUE types
+// ──────────────────────────────────────────────────────────────────────────────
+
+export interface ManagerConfig {
+  bind_address: string
+  port: number
+  server_executable: string | null
+  server_args: string[]
+  server_working_dir: string | null
+  log_file_path: string | null
+  log_buffer_capacity: number
+  server_stop_timeout_secs: number
+  player_event_capacity: number
+  backup_dir: string
+  history_file_path: string | null
+  update_check_url: string
+}
+
+export interface SetupStatus {
+  needs_setup: boolean
+  config: ManagerConfig
+  detected_executable: string | null
+  detected_working_dir: string | null
+  detected_log_file: string | null
+}
+
+export interface SetupApply {
+  bind_address?: string
+  port?: number
+  server_executable?: string
+  server_working_dir?: string
+  log_file_path?: string
+  server_args?: string[]
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Config file management types
+// ──────────────────────────────────────────────────────────────────────────────
+
+export type ConfigFileKind = 'server_description' | 'world_description'
+
+export interface ConfigFileInfo {
+  path: string
+  file_name: string
+  kind: ConfigFileKind
+  last_modified: string
+}
+
+export interface ConfigFileContent {
+  path: string
+  content: string
+  last_modified: string
+}
+
+export interface ConfigFileWrite {
+  path: string
+  content: string
+  last_modified: string
+}
+
+export interface ValidateResponse {
+  valid: boolean
+  error: string | null
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

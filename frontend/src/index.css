@@ -313,6 +313,11 @@ select.input {
   cursor: pointer;
 }
 
+select.input option {
+  background: #1a2332;
+  color: #e0e6ed;
+}
+
 /* ── Toggle / checkbox ─────────────────────────────────────────────────── */
 .toggle-row {
   display: flex;

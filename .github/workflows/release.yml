@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: backend
+
+      - name: Build release binary
+        working-directory: backend
+        run: cargo build --release
+
+      - name: Rename binary with version
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $src = "backend/target/release/windrose-server-manager.exe"
+          $dst = "windrose-server-manager-$tag-windows-x64.exe"
+          Copy-Item $src $dst
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: windrose-server-manager-${{ github.ref_name }}-windows-x64.exe
+          generate_release_notes: true

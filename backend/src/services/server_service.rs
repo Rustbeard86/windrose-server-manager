@@ -1,7 +1,9 @@
 use chrono::Utc;
 use tracing::{error, info, warn};
 
+use crate::config::AppConfig;
 use crate::models::{ServerInfo, ServerStatus};
+use crate::pid;
 use crate::process;
 use crate::state::AppState;
 
@@ -25,13 +27,14 @@ pub async fn start(state: &AppState) -> Result<(), String> {
         .as_ref()
         .ok_or_else(|| "server_executable is not configured".to_string())?;
 
-    // Validate: must be an absolute path to prevent directory traversal.
-    if !exe_path.is_absolute() {
-        return Err(format!(
-            "server_executable must be an absolute path (got: {})",
-            exe_path.display()
-        ));
-    }
+    // Resolve relative paths against the binary directory.
+    let exe_path = if exe_path.is_absolute() {
+        exe_path.clone()
+    } else {
+        let base = AppConfig::binary_dir()
+            .ok_or_else(|| "Cannot determine binary directory to resolve relative path".to_string())?;
+        base.join(exe_path)
+    };
 
     if !exe_path.exists() {
         return Err(format!(
@@ -51,15 +54,27 @@ pub async fn start(state: &AppState) -> Result<(), String> {
         })
         .await;
 
+    // Resolve working_dir relative to the binary directory.
+    let working_dir = state.config.server_working_dir.as_ref().map(|d| {
+        if d.is_absolute() {
+            d.clone()
+        } else {
+            AppConfig::binary_dir().map(|b| b.join(d)).unwrap_or_else(|| d.clone())
+        }
+    });
+
     let managed = process::spawn(
-        exe_path,
+        &exe_path,
         &state.config.server_args,
-        state.config.server_working_dir.as_deref(),
+        working_dir.as_deref(),
     )
     .map_err(|e| format!("Failed to spawn server process: {e}"))?;
 
     let pid = managed.pid;
     let started_at = Utc::now();
+
+    // Persist the PID so a restarted manager can re-adopt the process.
+    pid::write(pid);
 
     // Store the process handle.
     *state.process.lock().await = Some(managed);
@@ -112,9 +127,15 @@ pub async fn stop(state: &AppState) -> Result<(), String> {
         let mut proc_guard = state.process.lock().await;
         match proc_guard.as_mut() {
             None => {
-                // No tracked process; transition directly to stopped.
-                warn!("No tracked process found during stop; transitioning to Stopped");
-                Ok(())
+                // No live Child handle — this may be an adopted process from
+                // a previous manager session. Kill by PID if we have one.
+                if let Some(existing_pid) = current.pid {
+                    info!(pid = existing_pid, "Killing adopted server process by PID");
+                    pid::kill_by_pid(existing_pid)
+                } else {
+                    warn!("No tracked process and no PID; transitioning to Stopped");
+                    Ok(())
+                }
             }
             Some(managed) => {
                 // Try graceful shutdown first.
@@ -159,6 +180,9 @@ pub async fn stop(state: &AppState) -> Result<(), String> {
     // Release the process handle regardless of outcome.
     *state.process.lock().await = None;
 
+    // Remove the PID file — server is being deliberately stopped.
+    pid::remove();
+
     // Clear online players when the server stops.
     state.clear_players().await;
 
@@ -176,9 +200,18 @@ pub async fn stop(state: &AppState) -> Result<(), String> {
 
 /// Restart the server: stop (with graceful+forced fallback) then start.
 pub async fn restart(state: &AppState) -> Result<(), String> {
-    info!("Restarting server");
-    // If the server is already stopped we can skip the stop step.
     let current_status = state.get_server_info().await.status;
+
+    // Prevent overlapping restarts.
+    if current_status == ServerStatus::Starting || current_status == ServerStatus::Stopping {
+        return Err(format!(
+            "Server is transitioning ({:?}); cannot restart now",
+            current_status
+        ));
+    }
+
+    info!("Restarting server");
+
     if current_status != ServerStatus::Stopped {
         stop(state).await?;
     }
@@ -231,6 +264,9 @@ async fn watch_process(state: AppState, started_at: chrono::DateTime<Utc>) {
 
     // Release the handle now that the process has exited.
     *state.process.lock().await = None;
+
+    // Process exited on its own — remove the PID file.
+    pid::remove();
 
     let current = state.get_server_info().await;
     // Only update if still in Running/Starting (not if the stop path

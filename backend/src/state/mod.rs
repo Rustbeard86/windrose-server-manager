@@ -7,8 +7,8 @@ use tokio::sync::{broadcast, Mutex, RwLock};
 use crate::config::AppConfig;
 use crate::models::{
     AppStateSnapshot, BackupEntry, BackupJobState, BackupStatus, InstallJobState, InstallState,
-    LogLine, Player, PlayerEvent, PlayerEventKind, ScheduleState, ServerConfig, ServerInfo,
-    UpdateCheckState, UpdateState, WsEvent, WorldConfig,
+    LogLine, Player, PlayerEvent, PlayerEventKind, ScheduleConfig, ScheduleState, ServerConfig,
+    ServerInfo, ServerStats, UpdateApplyState, UpdateCheckState, UpdateState, WsEvent, WorldConfig,
 };
 use crate::process::ManagedProcess;
 
@@ -70,8 +70,7 @@ struct Inner {
     backup_status: BackupStatus,
     schedule_state: ScheduleState,
     install_state: InstallState,
-    update_state: UpdateState,
-}
+    update_state: UpdateState,    server_stats: Option<ServerStats>,}
 
 // ---------------------------------------------------------------------------
 // AppState — central shared state container
@@ -98,6 +97,15 @@ impl AppState {
     pub fn new(config: AppConfig) -> Self {
         let log_capacity = config.log_buffer_capacity;
         let player_event_capacity = config.player_event_capacity;
+        let schedule_state = ScheduleState {
+            config: ScheduleConfig {
+                enabled: config.schedule_enabled,
+                restart_hour: config.schedule_restart_hour,
+                restart_minute: config.schedule_restart_minute,
+                warning_seconds: config.schedule_warning_seconds,
+            },
+            ..ScheduleState::default()
+        };
         Self {
             inner: Arc::new(RwLock::new(Inner {
                 server_info: ServerInfo::default(),
@@ -109,9 +117,10 @@ impl AppState {
                 player_events: VecDeque::with_capacity(player_event_capacity),
                 player_event_capacity,
                 backup_status: BackupStatus::default(),
-                schedule_state: ScheduleState::default(),
+                schedule_state,
                 install_state: InstallState::default(),
                 update_state: UpdateState::default(),
+                server_stats: None,
             })),
             event_hub: EventHub::new(),
             config: Arc::new(config),
@@ -274,6 +283,7 @@ impl AppState {
         let inner = self.inner.read().await;
         let player_count = inner.players.len();
         let players: Vec<Player> = inner.players.values().cloned().collect();
+        let server_configured = self.config.server_executable_exists();
         AppStateSnapshot {
             server: inner.server_info.clone(),
             server_config: inner.server_config.clone(),
@@ -288,6 +298,8 @@ impl AppState {
             schedule: inner.schedule_state.clone(),
             install: inner.install_state.clone(),
             update: inner.update_state.clone(),
+            server_configured,
+            server_stats: inner.server_stats.clone(),
         }
     }
 
@@ -399,6 +411,18 @@ impl AppState {
     }
 
     // -----------------------------------------------------------------------
+    // Server stats
+    // -----------------------------------------------------------------------
+
+    pub async fn get_server_stats(&self) -> Option<ServerStats> {
+        self.inner.read().await.server_stats.clone()
+    }
+
+    pub async fn set_server_stats(&self, stats: Option<ServerStats>) {
+        self.inner.write().await.server_stats = stats;
+    }
+
+    // -----------------------------------------------------------------------
     // Update state
     // -----------------------------------------------------------------------
 
@@ -443,6 +467,10 @@ impl AppState {
         inner.update_state.last_checked_at = Some(Utc::now());
         drop(inner);
         tracing::warn!("Update check failed: {error}");
+    }
+
+    pub async fn set_update_apply_state(&self, apply_state: UpdateApplyState) {
+        self.inner.write().await.update_state.apply_state = apply_state;
     }
 
     // -----------------------------------------------------------------------

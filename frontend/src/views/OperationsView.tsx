@@ -10,14 +10,14 @@ interface OperationsViewProps {
 }
 
 export function OperationsView({ state, onReload }: OperationsViewProps) {
-  const { backup, schedule, install, update } = state
+  const { backup, schedule, install, update, server_configured } = state
 
   return (
     <div className="ops-view animate-fade-in">
       <BackupPanel backup={backup} onReload={onReload} />
       <SchedulePanel schedule={schedule} onReload={onReload} />
       <UpdatePanel update={update} onReload={onReload} />
-      <InstallPanel install={install} onReload={onReload} />
+      <InstallPanel install={install} serverConfigured={server_configured} onReload={onReload} />
     </div>
   )
 }
@@ -189,7 +189,7 @@ function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['sch
               min={0}
               max={23}
               value={cfg.restart_hour}
-              onChange={(e) => setCfg((c) => ({ ...c, restart_hour: parseInt(e.target.value, 10) }))}
+              onChange={(e) => setCfg((c) => ({ ...c, restart_hour: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
             />
           </div>
           <div className="field-group">
@@ -200,7 +200,7 @@ function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['sch
               min={0}
               max={59}
               value={cfg.restart_minute}
-              onChange={(e) => setCfg((c) => ({ ...c, restart_minute: parseInt(e.target.value, 10) }))}
+              onChange={(e) => setCfg((c) => ({ ...c, restart_minute: Math.min(59, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
             />
           </div>
           <div className="field-group">
@@ -240,18 +240,52 @@ function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['sch
 // ──────────────────────────────────────────────────────────────────────────────
 function UpdatePanel({ update, onReload }: { update: AppStateSnapshot['update']; onReload: () => void }) {
   const [checking, setChecking] = useState(false)
+  const [applying, setApplying] = useState(false)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  const isApplying =
+    applying ||
+    update.apply_state === 'downloading' ||
+    update.apply_state === 'applying' ||
+    update.apply_state === 'pending_restart'
 
   async function checkUpdate() {
     setChecking(true)
+    setMsg(null)
     try {
-      await apiPost('/api/update/check')
-      setTimeout(onReload, 800)
+      const res = await apiPost('/api/update/check')
+      if (!res.success) setMsg(res.message ?? 'Check failed')
+      else setTimeout(onReload, 800)
     } catch (e) {
-      console.error(e)
+      setMsg(`Error: ${e instanceof Error ? e.message : e}`)
     } finally {
       setTimeout(() => setChecking(false), 1000)
     }
   }
+
+  async function applyUpdate() {
+    if (!confirm('Apply update? The manager will restart automatically. The game server will keep running.')) return
+    setApplying(true)
+    setMsg(null)
+    try {
+      const res = await apiPost('/api/update/apply')
+      if (res.success) {
+        setMsg('Update in progress — manager will restart shortly.')
+      } else {
+        setMsg(`Failed: ${res.message}`)
+        setApplying(false)
+      }
+    } catch (e) {
+      setMsg(`Error: ${e instanceof Error ? e.message : e}`)
+      setApplying(false)
+    }
+  }
+
+  const applyLabel =
+    update.apply_state === 'downloading' ? 'Downloading…' :
+    update.apply_state === 'applying' ? 'Applying…' :
+    update.apply_state === 'pending_restart' ? 'Restarting…' :
+    'Apply Update'
 
   return (
     <div className="card ops-panel">
@@ -259,7 +293,14 @@ function UpdatePanel({ update, onReload }: { update: AppStateSnapshot['update'];
         <span className="panel-title-icon">⬆</span>
         App Update
         {update.update_available && (
-          <span className="badge badge-starting" style={{ marginLeft: 'auto' }}>Update Available</span>
+          <span className="badge badge-starting" style={{ marginLeft: 'auto' }}>
+            Update Available
+          </span>
+        )}
+        {update.apply_state === 'failed' && (
+          <span className="badge badge-stopped" style={{ marginLeft: 'auto' }}>
+            Update Failed
+          </span>
         )}
       </div>
 
@@ -286,16 +327,40 @@ function UpdatePanel({ update, onReload }: { update: AppStateSnapshot['update'];
         )}
       </div>
 
-      <div className="ops-form" style={{ marginTop: '0.75rem' }}>
-        <button className="btn" onClick={checkUpdate} disabled={checking || update.check_state === 'checking'}>
-          {checking || update.check_state === 'checking' ? 'Checking…' : '🔍 Check for Updates'}
+      {msg && (
+        <p className="text-muted" style={{ fontSize: '0.82rem', marginTop: '0.5rem' }}>{msg}</p>
+      )}
+
+      <div className="ops-form" style={{ marginTop: '0.75rem', gap: '0.5rem', display: 'flex', flexWrap: 'wrap' }}>
+        <button
+          className="btn"
+          onClick={checkUpdate}
+          disabled={checking || update.check_state === 'checking' || isApplying}
+        >
+          {checking || update.check_state === 'checking' ? 'Checking…' : 'Check for Updates'}
         </button>
-        {update.update_available && update.download_url && (
-          <a href={update.download_url} target="_blank" rel="noreferrer" className="btn btn-primary">
-            Download Latest
-          </a>
+
+        {update.update_available && (
+          <button
+            className="btn btn-primary"
+            onClick={applyUpdate}
+            disabled={isApplying}
+          >
+            {isApplying ? applyLabel : 'Apply Update'}
+          </button>
         )}
       </div>
+
+      {update.release_notes && (
+        <details style={{ marginTop: '0.75rem' }}>
+          <summary className="text-muted" style={{ cursor: 'pointer', fontSize: '0.82rem' }}>
+            Release notes
+          </summary>
+          <pre style={{ fontSize: '0.75rem', whiteSpace: 'pre-wrap', marginTop: '0.4rem', color: 'var(--text-muted)' }}>
+            {update.release_notes}
+          </pre>
+        </details>
+      )}
     </div>
   )
 }
@@ -303,9 +368,13 @@ function UpdatePanel({ update, onReload }: { update: AppStateSnapshot['update'];
 // ──────────────────────────────────────────────────────────────────────────────
 // Install panel
 // ──────────────────────────────────────────────────────────────────────────────
-function InstallPanel({ install, onReload }: { install: AppStateSnapshot['install']; onReload: () => void }) {
-  const [source, setSource] = useState('')
-  const [dest, setDest] = useState('')
+function InstallPanel({ install, serverConfigured, onReload }: {
+  install: AppStateSnapshot['install']
+  serverConfigured: boolean
+  onReload: () => void
+}) {
+  const [source, setSource] = useState(install.detected_sources[0] ?? '')
+  const [dest, setDest] = useState(install.destination ?? '')
   const [detecting, setDetecting] = useState(false)
   const [installing, setInstalling] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -382,39 +451,45 @@ function InstallPanel({ install, onReload }: { install: AppStateSnapshot['instal
       )}
 
       <div className="ops-fields" style={{ marginTop: '0.75rem' }}>
-        <div className="field-group">
-          <label className="field-label">Source Path</label>
-          <input
-            className="input input-mono"
-            type="text"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            placeholder="C:\Steam\steamapps\common\WindroseServer"
-          />
-        </div>
-        <div className="field-group">
-          <label className="field-label">Destination Path</label>
-          <input
-            className="input input-mono"
-            type="text"
-            value={dest}
-            onChange={(e) => setDest(e.target.value)}
-            placeholder="C:\WindroseServer"
-          />
-        </div>
+        {!serverConfigured && (
+          <>
+            <div className="field-group">
+              <label className="field-label">Source Path</label>
+              <input
+                className="input input-mono"
+                type="text"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                placeholder="C:\Steam\steamapps\common\WindroseServer"
+              />
+            </div>
+            <div className="field-group">
+              <label className="field-label">Destination Path</label>
+              <input
+                className="input input-mono"
+                type="text"
+                value={dest}
+                onChange={(e) => setDest(e.target.value)}
+                placeholder="C:\WindroseServer"
+              />
+            </div>
+          </>
+        )}
       </div>
 
       <div className="ops-form">
         <button className="btn" onClick={detect} disabled={detecting || isBusy}>
-          {detecting ? 'Detecting…' : '🔍 Detect Steam'}
+          {detecting ? 'Detecting…' : '🔍 Detect'}
         </button>
-        <button
-          className="btn btn-primary"
-          onClick={runInstall}
-          disabled={!source || !dest || installing || isBusy}
-        >
-          {installing ? 'Installing…' : '▶ Run Install'}
-        </button>
+        {!serverConfigured && (
+          <button
+            className="btn btn-primary"
+            onClick={runInstall}
+            disabled={!source || !dest || installing || isBusy}
+          >
+            {installing ? 'Installing…' : '▶ Run Install'}
+          </button>
+        )}
       </div>
 
       {msg && (

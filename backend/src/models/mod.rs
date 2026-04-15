@@ -100,6 +100,28 @@ pub struct PlayerEvent {
 // App state snapshot
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Server stats
+// ---------------------------------------------------------------------------
+
+/// Live resource-usage statistics for the running server process.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerStats {
+    /// Process CPU usage, 0–100 % (normalised across all logical CPUs).
+    pub cpu_percent: f32,
+    /// Process resident-set size in bytes.
+    pub memory_bytes: u64,
+    /// System total physical memory in bytes.
+    pub memory_total_bytes: u64,
+    /// Cumulative size of all files under the server folder, in bytes.
+    pub disk_used_bytes: u64,
+    /// System-wide network receive bytes since last sample.
+    pub net_rx_bytes_per_sec: u64,
+    /// System-wide network transmit bytes since last sample.
+    pub net_tx_bytes_per_sec: u64,
+    pub collected_at: DateTime<Utc>,
+}
+
 /// Full application state snapshot returned by `GET /api/state`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppStateSnapshot {
@@ -122,6 +144,10 @@ pub struct AppStateSnapshot {
     pub install: InstallState,
     /// App-update check state.
     pub update: UpdateState,
+    /// `true` when a server executable path is configured and the file exists.
+    pub server_configured: bool,
+    /// Live resource stats; `None` when the server is not running.
+    pub server_stats: Option<ServerStats>,
 }
 
 // ---------------------------------------------------------------------------
@@ -282,8 +308,23 @@ pub struct UpdateState {
     pub update_available: bool,
     pub last_checked_at: Option<DateTime<Utc>>,
     pub check_state: UpdateCheckState,
+    /// In-progress apply state.
+    pub apply_state: UpdateApplyState,
     pub release_notes: Option<String>,
     pub download_url: Option<String>,
+}
+
+/// State of an in-progress or completed self-update apply.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum UpdateApplyState {
+    #[default]
+    Idle,
+    Downloading,
+    Applying,
+    /// Update applied — manager will exit and be relaunched by the updater.
+    PendingRestart,
+    Failed,
 }
 
 impl Default for UpdateState {
@@ -294,6 +335,7 @@ impl Default for UpdateState {
             update_available: false,
             last_checked_at: None,
             check_state: UpdateCheckState::Idle,
+            apply_state: UpdateApplyState::Idle,
             release_notes: None,
             download_url: None,
         }
@@ -344,6 +386,8 @@ pub enum WsEvent {
         latest_version: String,
         download_url: Option<String>,
     },
+    /// Periodic server resource-usage stats.
+    StatsUpdated(ServerStats),
 }
 
 // ---------------------------------------------------------------------------

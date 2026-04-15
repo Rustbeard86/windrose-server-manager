@@ -35,8 +35,10 @@
 
 use std::path::{Path, PathBuf};
 
+use serde::Serialize;
 use tracing::{error, info, warn};
 
+use crate::config::AppConfig;
 use crate::models::{InstallJobState, WsEvent};
 use crate::state::AppState;
 
@@ -61,6 +63,94 @@ const STEAM_COMMON_ROOTS: &[&str] = &[
 
 /// Substring fragments considered indicative of a Windrose installation.
 const WINDROSE_FRAGMENTS: &[&str] = &["windrose", "Windrose"];
+
+/// Known server executable filenames / relative paths to probe.
+const SERVER_EXE_CANDIDATES: &[&str] = &[
+    "WindroseServer.exe",
+    r"R5\Binaries\Win64\WindroseServer-Win64-Shipping.exe",
+];
+
+// ---------------------------------------------------------------------------
+// Local server auto-detection
+// ---------------------------------------------------------------------------
+
+/// Result of auto-detecting a local Windrose server installation.
+#[derive(Debug, Clone, Serialize)]
+pub struct DetectedServer {
+    /// Absolute path to the server executable.
+    pub executable: PathBuf,
+    /// Absolute path to the working directory (R5).
+    pub working_dir: PathBuf,
+    /// Absolute path to the log file.
+    pub log_file_path: PathBuf,
+}
+
+fn build_detected(server_root: &Path, executable: PathBuf) -> DetectedServer {
+    DetectedServer {
+        executable,
+        working_dir: server_root.join("R5"),
+        log_file_path: server_root.join(r"R5\Saved\Logs\R5.log"),
+    }
+}
+
+/// Search near the manager binary for a Windrose server executable.
+///
+/// Checks the binary's own directory, immediate subdirectories whose name
+/// contains "windrose", and the parent directory + its children.
+pub fn detect_local_server() -> Option<DetectedServer> {
+    let bin_dir = AppConfig::binary_dir()?;
+
+    // 1. Check the binary's own directory.
+    for candidate in SERVER_EXE_CANDIDATES {
+        let full = bin_dir.join(candidate);
+        if full.is_file() {
+            return Some(build_detected(&bin_dir, full));
+        }
+    }
+
+    // 2. Check child directories whose name contains "windrose".
+    if let Some(found) = scan_children_for_server(&bin_dir) {
+        return Some(found);
+    }
+
+    // 3. Check the parent directory and *its* children.
+    if let Some(parent) = bin_dir.parent() {
+        for candidate in SERVER_EXE_CANDIDATES {
+            let full = parent.join(candidate);
+            if full.is_file() {
+                return Some(build_detected(parent, full));
+            }
+        }
+        if let Some(found) = scan_children_for_server(parent) {
+            return Some(found);
+        }
+    }
+
+    None
+}
+
+/// Scan immediate child directories of `dir` for a Windrose server executable.
+fn scan_children_for_server(dir: &Path) -> Option<DetectedServer> {
+    let entries = std::fs::read_dir(dir).ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let name = entry.file_name();
+        let name_lower = name.to_string_lossy().to_lowercase();
+        if !name_lower.contains("windrose") {
+            continue;
+        }
+        for candidate in SERVER_EXE_CANDIDATES {
+            let full = path.join(candidate);
+            if full.is_file() {
+                return Some(build_detected(&path, full));
+            }
+        }
+    }
+    None
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -137,11 +227,22 @@ async fn run_detect(state: AppState) {
     });
 }
 
-/// Probe known Steam library roots and return directories that match the
-/// Windrose fragment list.
+/// Probe known Steam library roots *and* the local filesystem near the
+/// manager binary, returning directories that contain a Windrose installation.
 pub async fn detect_sources() -> Vec<PathBuf> {
     let mut found = Vec::new();
 
+    // Local detection — check near the running binary.
+    if let Some(det) = detect_local_server() {
+        if let Some(parent) = det.executable.parent() {
+            let local_dir = parent.to_path_buf();
+            if !found.contains(&local_dir) {
+                found.push(local_dir);
+            }
+        }
+    }
+
+    // Steam library roots.
     for root in STEAM_COMMON_ROOTS {
         let base = Path::new(root);
         if !base.exists() {
@@ -157,7 +258,10 @@ pub async fn detect_sources() -> Vec<PathBuf> {
                         .iter()
                         .any(|f| name_str.to_lowercase().contains(&f.to_lowercase()))
                     {
-                        found.push(entry.path());
+                        let path = entry.path();
+                        if !found.contains(&path) {
+                            found.push(path);
+                        }
                     }
                 }
             }
