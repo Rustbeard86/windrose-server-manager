@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.2.0] - 2026-04-15
+
+### Added
+- **CSRF protection** — Double-submit cookie pattern for all authenticated mutating routes
+
+- **Audit event retention cleanup** — Background task runs every 6 hours to prune audit records older than configured retention period
+- **Windows console command injection** — Commands now sent to the Windrose server via Windows console input API (`WriteConsoleInput`) instead of stdin, enabling delivery to processes reading console buffer directly
+- **Graceful server stop with Ctrl+Break** — Replaces forceful process termination; falls back to force-kill if graceful stop times out
+- **Join code display on dashboard** — Server invite code shown prominently in the hero controls section next to lifecycle buttons
+- **Quick preset command buttons** — Dashboard includes buttons for common operations: Save World, List Players, Show Logs, Quit Server
+- **Nonblocking process watcher** — Replaced blocking `wait()` with nonblocking `try_wait()` polling; eliminates lockcontention and allows concurrent start/stop/command operations
+- **Runtime server config and uptime refresh** — Background monitor (2-second tick) keeps server configuration and uptime statistics current on dashboard without blocking lifecycle operations
+- **Periodic dashboard state polling** — Frontend polls `/api/state/server` every 5 seconds as fallback to WebSocket; ensures dashboard stays in sync even if live events are missed
+
+### Changed
+- Server lifecycle no longer blocks on process exit; start/stop/restart operations return immediately
+- Dashboard automatically detects server crashes during operation (not just at startup)
+- Process state transitions are fully nonblocking
+- ANSI formatting disabled in GUI logs to prevent escape sequence corruption (e.g., `←[2m`, `←[32m`)
+- Improved config file resolution to search within Windrose's RocksDB SaveProfiles tree for `WorldDescription.json`
+
+### Fixed
+- Server start/stop/restart previously blocked indefinitely when process watcher held locks
+- Dashboard showed stale uptime and join code after server start
+- Command delivery to Windrose server was broken due to stdin pipe not being used by game server
+- GUI logs displayed ANSI escape codes as visible characters instead of formatting
+- Grace period for console input injection now allows proper command buffering
+
+---
+
 ## [0.1.0] - 2026-04-15
 
 ### Added
