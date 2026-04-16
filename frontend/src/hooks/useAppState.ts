@@ -20,7 +20,6 @@ export function useAppState(enabled = true) {
   const [livePlayerEvents, setLivePlayerEvents] = useState<PlayerEvent[]>([])
 
   const loadState = useCallback(async () => {
-    if (!enabled) return
     try {
       const response = await apiGet<AppStateSnapshot>('/api/state')
       if (response.success && response.data) {
@@ -32,7 +31,7 @@ export function useAppState(enabled = true) {
     } catch {
       setConnectionStatus('error')
     }
-  }, [enabled])
+  }, [])
 
   const handleWsEvent = useCallback((event: WsEvent) => {
     switch (event.event) {
