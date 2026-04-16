@@ -8,9 +8,10 @@ import './DashboardView.css'
 interface DashboardViewProps {
   state: AppStateSnapshot
   onReload: () => void
+  canManageServer: boolean
 }
 
-export function DashboardView({ state, onReload }: DashboardViewProps) {
+export function DashboardView({ state, onReload, canManageServer }: DashboardViewProps) {
   const [cmdInput, setCmdInput] = useState('')
   const [cmdResult, setCmdResult] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
@@ -47,6 +48,19 @@ export function DashboardView({ state, onReload }: DashboardViewProps) {
     }
   }
 
+  async function sendPresetCommand(command: string) {
+    setSending(true)
+    setCmdResult(null)
+    try {
+      const res = await apiPost<{ sent: boolean }>('/api/server/command', { command })
+      setCmdResult(res.success ? `✓ ${command}` : `✗ ${res.message}`)
+    } catch (err) {
+      setCmdResult(`✗ ${err instanceof Error ? err.message : 'Error'}`)
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
     <div className="dashboard-view animate-fade-in">
       {/* ── Hero / status region ─────────────────────────────────────── */}
@@ -57,12 +71,6 @@ export function DashboardView({ state, onReload }: DashboardViewProps) {
           </div>
           <div className="hero-meta">
             <StatusBadge status={server.status} />
-            {server_config?.invite_code && (
-              <span className="hero-invite-code">
-                <span className="text-muted" style={{ fontSize: '0.7rem', marginRight: '4px' }}>INVITE</span>
-                <code>{server_config.invite_code}</code>
-              </span>
-            )}
             {server.pid && (
               <span className="text-faint" style={{ fontSize: '0.72rem' }}>PID {server.pid}</span>
             )}
@@ -92,24 +100,28 @@ export function DashboardView({ state, onReload }: DashboardViewProps) {
 
         {/* Controls */}
         <div className="hero-controls">
+          <div className="hero-invite-code">
+            <span className="text-muted" style={{ fontSize: '0.7rem', marginRight: '4px' }}>JOIN CODE</span>
+            <code>{server_config?.invite_code || 'pending...'}</code>
+          </div>
           <button
             className="btn btn-primary"
             onClick={() => handleLifecycle('start')}
-            disabled={isRunning || isBusy}
+            disabled={!canManageServer || isRunning || isBusy}
           >
             ▶ Start
           </button>
           <button
             className="btn btn-danger"
             onClick={() => handleLifecycle('stop')}
-            disabled={!isRunning || isBusy}
+            disabled={!canManageServer || !isRunning || isBusy}
           >
             ■ Stop
           </button>
           <button
             className="btn"
             onClick={() => handleLifecycle('restart')}
-            disabled={isBusy}
+            disabled={!canManageServer || isBusy}
           >
             ↺ Restart
           </button>
@@ -147,16 +159,30 @@ export function DashboardView({ state, onReload }: DashboardViewProps) {
               placeholder="Type a server command…"
               value={cmdInput}
               onChange={(e) => setCmdInput(e.target.value)}
-              disabled={!isRunning || sending}
+              disabled={!canManageServer || !isRunning || sending}
             />
             <button
               className="btn btn-primary"
               type="submit"
-              disabled={!isRunning || sending || !cmdInput.trim()}
+              disabled={!canManageServer || !isRunning || sending || !cmdInput.trim()}
             >
               Send
             </button>
           </form>
+          <div className="hero-controls" style={{ marginTop: '0.65rem', justifyContent: 'flex-start' }}>
+            <button className="btn btn-sm" onClick={() => void sendPresetCommand('save world')} disabled={!canManageServer || !isRunning || sending}>
+              Save World
+            </button>
+            <button className="btn btn-sm" onClick={() => void sendPresetCommand('list players')} disabled={!canManageServer || !isRunning || sending}>
+              List Players
+            </button>
+            <button className="btn btn-sm" onClick={() => void sendPresetCommand('logs')} disabled={!canManageServer || !isRunning || sending}>
+              Show Logs
+            </button>
+            <button className="btn btn-sm btn-danger" onClick={() => void sendPresetCommand('quit')} disabled={!canManageServer || !isRunning || sending}>
+              Quit Server
+            </button>
+          </div>
           {cmdResult && (
             <div className={`cmd-result ${cmdResult.startsWith('✓') ? 'text-success' : 'text-danger'}`}>
               {cmdResult}

@@ -19,6 +19,31 @@ pub struct AppConfig {
     pub bind_address: String,
     /// Port to listen on.
     pub port: u16,
+    /// Enable built-in HTTPS listener.
+    #[serde(default)]
+    pub tls_enabled: bool,
+    /// Optional bind address for HTTPS. If omitted, `bind_address` is used.
+    #[serde(default)]
+    pub tls_bind_address: Option<String>,
+    /// HTTPS port.
+    #[serde(default = "default_tls_port")]
+    pub tls_port: u16,
+    /// TLS certificate PEM path.
+    #[serde(default)]
+    pub tls_cert_path: Option<PathBuf>,
+    /// TLS private key PEM path.
+    #[serde(default)]
+    pub tls_key_path: Option<PathBuf>,
+    /// Start a plain HTTP listener that permanently redirects to HTTPS.
+    #[serde(default)]
+    pub http_redirect_enabled: bool,
+    /// HTTP redirect listener port.
+    #[serde(default = "default_http_redirect_port")]
+    pub http_redirect_port: u16,
+    /// Allowed CORS origins for browser clients.
+    /// Empty means permissive mode (legacy behavior).
+    #[serde(default)]
+    pub trusted_origins: Vec<String>,
     /// Path to the managed game-server executable.
     /// Example (Windows): `"C:\\WindroseServer\\WindroseServer.exe"`
     pub server_executable: Option<PathBuf>,
@@ -60,16 +85,52 @@ pub struct AppConfig {
     /// Warning countdown in seconds before the scheduled restart fires.
     #[serde(default = "default_warning_seconds")]
     pub schedule_warning_seconds: u64,
+
+    // ── Auth and security settings ─────────────────────────────────────────
+    /// Session idle timeout in seconds.
+    #[serde(default = "default_auth_session_ttl_secs")]
+    pub auth_session_ttl_secs: i64,
+    /// Invite default expiry in hours.
+    #[serde(default = "default_auth_invite_ttl_hours")]
+    pub auth_invite_ttl_hours: i64,
+    /// Password reset code default expiry in minutes.
+    #[serde(default = "default_auth_reset_ttl_minutes")]
+    pub auth_reset_ttl_minutes: i64,
+    /// Maximum failed login attempts before temporary lockout.
+    #[serde(default = "default_auth_max_failed_logins")]
+    pub auth_max_failed_logins: i64,
+    /// Temporary lockout duration in minutes after too many failed logins.
+    #[serde(default = "default_auth_lockout_minutes")]
+    pub auth_lockout_minutes: i64,
+    /// Audit retention period in days.
+    #[serde(default = "default_audit_retention_days")]
+    pub audit_retention_days: i64,
 }
 
 fn default_schedule_hour() -> u8 { 4 }
 fn default_warning_seconds() -> u64 { 60 }
+fn default_tls_port() -> u16 { 8443 }
+fn default_http_redirect_port() -> u16 { 8787 }
+fn default_auth_session_ttl_secs() -> i64 { 12 * 60 * 60 }
+fn default_auth_invite_ttl_hours() -> i64 { 24 * 7 }
+fn default_auth_reset_ttl_minutes() -> i64 { 30 }
+fn default_auth_max_failed_logins() -> i64 { 5 }
+fn default_auth_lockout_minutes() -> i64 { 15 }
+fn default_audit_retention_days() -> i64 { 30 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             bind_address: "127.0.0.1".to_string(),
             port: 8787,
+            tls_enabled: false,
+            tls_bind_address: None,
+            tls_port: 8443,
+            tls_cert_path: None,
+            tls_key_path: None,
+            http_redirect_enabled: false,
+            http_redirect_port: 8787,
+            trusted_origins: Vec::new(),
             server_executable: Some(PathBuf::from("WindroseServer.exe")),
             server_args: Vec::new(),
             server_working_dir: Some(PathBuf::from("R5")),
@@ -84,6 +145,12 @@ impl Default for AppConfig {
             schedule_restart_hour: 4,
             schedule_restart_minute: 0,
             schedule_warning_seconds: 60,
+            auth_session_ttl_secs: 12 * 60 * 60,
+            auth_invite_ttl_hours: 24 * 7,
+            auth_reset_ttl_minutes: 30,
+            auth_max_failed_logins: 5,
+            auth_lockout_minutes: 15,
+            audit_retention_days: 30,
         }
     }
 }
@@ -92,6 +159,20 @@ impl AppConfig {
     /// Return the full socket address string, e.g. `"127.0.0.1:8787"`.
     pub fn socket_addr(&self) -> String {
         format!("{}:{}", self.bind_address, self.port)
+    }
+
+    /// Return the configured HTTPS socket address.
+    pub fn tls_socket_addr(&self) -> String {
+        let bind = self
+            .tls_bind_address
+            .as_deref()
+            .unwrap_or(self.bind_address.as_str());
+        format!("{}:{}", bind, self.tls_port)
+    }
+
+    /// Return the configured HTTP redirect socket address.
+    pub fn http_redirect_socket_addr(&self) -> String {
+        format!("{}:{}", self.bind_address, self.http_redirect_port)
     }
 
     /// The directory containing the running binary.

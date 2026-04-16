@@ -3,6 +3,7 @@ use axum::{
         ws::{Message, WebSocket, WebSocketUpgrade},
         State,
     },
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
 };
 use futures::{sink::SinkExt, stream::StreamExt};
@@ -21,8 +22,17 @@ use crate::state::AppState;
 /// (e.g. console commands, ping/pong).
 pub async fn handler(
     ws: WebSocketUpgrade,
+    headers: HeaderMap,
     State(app): State<AppState>,
 ) -> impl IntoResponse {
+    match crate::api::auth::validate_ws_auth(&app, &headers) {
+        Ok(Some(_)) => {}
+        Ok(None) => return StatusCode::UNAUTHORIZED.into_response(),
+        Err(e) => {
+            tracing::warn!("WS auth validation failed: {e}");
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    }
     ws.on_upgrade(move |socket| handle_socket(socket, app))
 }
 

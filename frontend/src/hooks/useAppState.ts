@@ -13,13 +13,14 @@ const MAX_LOG_LINES = 500
 
 export type ConnectionStatus = 'loading' | 'connected' | 'disconnected' | 'error'
 
-export function useAppState() {
+export function useAppState(enabled = true) {
   const [state, setState] = useState<AppStateSnapshot | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('loading')
   const [liveLogLines, setLiveLogLines] = useState<LogLine[]>([])
   const [livePlayerEvents, setLivePlayerEvents] = useState<PlayerEvent[]>([])
 
   const loadState = useCallback(async () => {
+    if (!enabled) return
     try {
       const response = await apiGet<AppStateSnapshot>('/api/state')
       if (response.success && response.data) {
@@ -31,13 +32,18 @@ export function useAppState() {
     } catch {
       setConnectionStatus('error')
     }
-  }, [])
+  }, [enabled])
 
   const handleWsEvent = useCallback((event: WsEvent) => {
     switch (event.event) {
       case 'server_status_changed':
         setState((prev) =>
           prev ? { ...prev, server: event.data } : prev
+        )
+        break
+      case 'stats_updated':
+        setState((prev) =>
+          prev ? { ...prev, server_stats: event.data } : prev
         )
         break
       case 'log_line':
@@ -163,10 +169,11 @@ export function useAppState() {
     }
   }, [])
 
-  const { status: wsStatus } = useWebSocket({ onEvent: handleWsEvent })
+  const { status: wsStatus } = useWebSocket({ onEvent: handleWsEvent, enabled })
 
   const prevWsRef = useRef(wsStatus)
   useEffect(() => {
+    if (!enabled) return
     if (prevWsRef.current !== wsStatus) {
       if (wsStatus === 'connected') {
         // Re-hydrate state on reconnect (loadState is an async fetch helper,
@@ -175,11 +182,25 @@ export function useAppState() {
       }
       prevWsRef.current = wsStatus
     }
-  }, [wsStatus, loadState])
+  }, [wsStatus, loadState, enabled])
 
   useEffect(() => {
+    if (!enabled) {
+      setConnectionStatus('disconnected')
+      return
+    }
     void loadState()
-  }, [loadState])
+  }, [loadState, enabled])
+
+  useEffect(() => {
+    if (!enabled) return
+
+    const timer = window.setInterval(() => {
+      void loadState()
+    }, 5000)
+
+    return () => window.clearInterval(timer)
+  }, [loadState, enabled])
 
   return {
     state,

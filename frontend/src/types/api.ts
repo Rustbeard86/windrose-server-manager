@@ -147,6 +147,59 @@ export interface ApiResponse<T> {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Auth types
+// ──────────────────────────────────────────────────────────────────────────────
+
+export interface AuthStatus {
+  has_users: boolean
+  needs_bootstrap: boolean
+}
+
+export interface SessionInfo {
+  username: string
+  is_admin: boolean
+  permission_flags: number
+}
+
+export interface AuthUserSummary {
+  id: number
+  username: string
+  is_admin: boolean
+  permission_flags: number
+  disabled: boolean
+  created_at: number
+}
+
+export interface InviteSummary {
+  id: number
+  permission_flags: number
+  max_uses: number
+  uses: number
+  created_at: number
+  expires_at: number | null
+  created_by_user: number | null
+  exhausted: boolean
+  expired: boolean
+}
+
+export interface CreatedInvite {
+  code: string
+  permission_flags: number
+  max_uses: number
+  expires_at: number | null
+}
+
+export interface AuditEventSummary {
+  id: number
+  created_at: number
+  actor_user_id: number | null
+  actor_username: string | null
+  action: string
+  details: string | null
+  success: boolean
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Setup / FTUE types
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -227,3 +280,4 @@ export type WsEvent =
   | { event: 'schedule_countdown'; data: { seconds_remaining: number; cancelled: boolean } }
   | { event: 'install_progress'; data: { job_state: string; progress_pct: number | null; current_file: string | null } }
   | { event: 'update_available'; data: { current_version: string; latest_version: string; download_url: string | null } }
+  | { event: 'stats_updated'; data: ServerStats }
