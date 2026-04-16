@@ -330,6 +330,10 @@ function LoginView({ onLoggedIn }: { onLoggedIn: () => Promise<void> | void }) {
           setMessage(res.message ?? 'Login failed')
         }
       } else if (mode === 'register') {
+        if (password.length < 10) {
+          setMessage('Password must be at least 10 characters')
+          return
+        }
         const res = await apiPost('/api/auth/register', { invite_code: inviteCode, username, password })
         if (res.success) {
           setMessage('Registration successful. You can sign in now.')
@@ -339,6 +343,10 @@ function LoginView({ onLoggedIn }: { onLoggedIn: () => Promise<void> | void }) {
           setMessage(res.message ?? 'Registration failed')
         }
       } else {
+        if (newPassword.length < 10) {
+          setMessage('New password must be at least 10 characters')
+          return
+        }
         const res = await apiPost('/api/auth/reset-password', { reset_code: resetCode, new_password: newPassword })
         if (res.success) {
           setMessage('Password updated. You can sign in now.')
@@ -387,6 +395,7 @@ function LoginView({ onLoggedIn }: { onLoggedIn: () => Promise<void> | void }) {
               <>
                 <label className="field-label">Password</label>
                 <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                {mode === 'register' && <p className="text-faint" style={{fontSize: '0.85em', marginTop: '0.25rem'}}>Minimum 10 characters required</p>}
               </>
             )}
 
@@ -397,6 +406,7 @@ function LoginView({ onLoggedIn }: { onLoggedIn: () => Promise<void> | void }) {
 
                 <label className="field-label">New Password</label>
                 <input className="input" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required />
+                <p className="text-faint" style={{fontSize: '0.85em', marginTop: '0.25rem'}}>Minimum 10 characters required</p>
               </>
             )}
 
@@ -407,8 +417,8 @@ function LoginView({ onLoggedIn }: { onLoggedIn: () => Promise<void> | void }) {
                 busy
                 || !username
                 || (mode === 'login' && !password)
-                || (mode === 'register' && (!password || !inviteCode))
-                || (mode === 'reset' && (!resetCode || !newPassword))
+                || (mode === 'register' && (!password || password.length < 10 || !inviteCode))
+                || (mode === 'reset' && (!resetCode || !newPassword || newPassword.length < 10))
               }
             >
               {busy ? 'Working…' : mode === 'login' ? 'Sign In' : mode === 'register' ? 'Register Account' : 'Reset Password'}
