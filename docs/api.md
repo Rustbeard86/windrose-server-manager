@@ -15,6 +15,19 @@ Error responses return a non-2xx status with `"success": false` and a `"message"
 | Method | Path | Body | Description |
 |--------|------|------|-------------|
 | `GET` | `/api/health` | — | Liveness probe — always `200 OK` |
+| `GET` | `/api/auth/status` | — | Auth bootstrap status (`has_users`, `needs_bootstrap`) |
+| `POST` | `/api/auth/bootstrap` | `{"username":"...","password":"..."}` | Create initial admin account (first-run only) |
+| `POST` | `/api/auth/login` | `{"username":"...","password":"..."}` | Create session and set auth + CSRF cookies |
+| `POST` | `/api/auth/logout` | — | Invalidate session and clear auth + CSRF cookies |
+| `GET` | `/api/auth/me` | — | Current authenticated user/session info |
+| `GET` | `/api/auth/users` | — | List users (requires manage-users permission) |
+| `PUT` | `/api/auth/users/:id` | `{"is_admin":bool?,"permission_flags":number?,"disabled":bool?}` | Update user role/flags/disabled state |
+| `GET` | `/api/auth/invites` | — | List registration invites |
+| `POST` | `/api/auth/invites` | `{"permission_flags":number,"max_uses":number?,"expires_in_hours":number?}` | Create invite with permissions |
+| `POST` | `/api/auth/register` | `{"invite_code":"...","username":"...","password":"..."}` | Register account using invite |
+| `POST` | `/api/auth/reset-code` | `{"username":"...","expires_in_minutes":number?}` | Create one-time reset code |
+| `POST` | `/api/auth/reset-password` | `{"reset_code":"...","new_password":"..."}` | Reset password with one-time code |
+| `GET` | `/api/auth/audit?limit=...` | — | Auth/admin audit events |
 | `GET` | `/api/state` | — | Full app state snapshot (includes `server_configured`, `server_stats`) |
 | `POST` | `/api/server/start` | — | Spawn the server process |
 | `POST` | `/api/server/stop` | — | Graceful stop (force-kill fallback) |
@@ -46,6 +59,12 @@ Error responses return a non-2xx status with `"success": false` and a `"message"
 | `GET` | `/api/update` | — | Update-check state |
 | `POST` | `/api/update/check` | — | Trigger an update check |
 | `POST` | `/api/update/apply` | — | Download and apply a pending update |
+
+### Auth + CSRF notes
+
+- After successful `POST /api/auth/login`, the backend sets a session cookie and a CSRF cookie.
+- For authenticated mutating routes (`POST`/`PUT`/etc.), send `X-CSRF-Token` with the value from `wsm_csrf` cookie.
+- If CSRF validation fails, the backend returns `403 Forbidden`.
 
 ---
 

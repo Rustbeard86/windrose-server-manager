@@ -36,8 +36,11 @@
 - **Process control** — Start, stop, and restart the server. Detects crashes and transitions state automatically. The manager can be stopped or restarted independently — the game server process keeps running.
 - **First-run wizard** — A guided setup wizard auto-detects the adjacent server binary, pre-fills all paths, and writes the config file. No manual JSON editing required on a standard install. Accessible any time from the header.
 - **Live log feed** — Tails the server log file in real time and streams lines to the browser over WebSocket.
+- **Richer runtime logging** — Ingests both tailed log-file lines and live process `stdout`/`stderr` output so the Logs view remains informative even when file output is sparse.
 - **Player tracking** — Detects join/leave events from log output. Shows an online player list and session history.
 - **Resource monitoring** — Live process CPU %, RAM usage, server-folder disk size, and network throughput. Displayed as arc gauges on the Dashboard while the server is running.
+- **Authentication and RBAC** — Bootstrap admin flow, invite-based registration, password reset codes, CSRF protection, and audit logging.
+- **Permission groups** — Admin panel supports reusable predefined permission sets that can be applied to invites and directly to users.
 - **Backups** — Creates timestamped directory backups of the server working directory, with live progress.
 - **Scheduled restarts** — Configure a daily restart at a specific time with a configurable countdown warning.
 - **Config editing** — Read and write `ServerDescription.json` and `WorldDescription.json` from the dashboard. Structured field view, raw JSON editor, external-edit detection, and conflict diff.
@@ -190,7 +193,7 @@ For direct internet exposure, enable TLS and provide valid `tls_cert_path` and `
 
 **Log tailing shows no output** — verify that `log_file_path` is correct and that the server has been started at least once (the log file is created by the server on first run). The manager waits up to 30 seconds for the file to appear.
 
-**Commands sent to the server have no effect** — many Windows game servers read from the Windows console input buffer rather than their stdin pipe. Commands are forwarded to the pipe on a best-effort basis.
+**Commands sent to the server have no effect** — on Windows, the manager first attempts console-input injection and falls back to stdin piping. Some servers may still ignore one path; verify your server is running in a compatible console context and review the Logs view for command-delivery errors.
 
 **Steam source not detected** — the detect step probes a fixed list of common Steam library paths. If your library is in a non-standard location, pass the source path directly to the install panel.
 

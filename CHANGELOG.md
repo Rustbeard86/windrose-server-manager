@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [Unreleased]
+
+### Added
+- **Permission checkbox matrix for user editing** — Admin panel now provides feature-level permission toggles instead of requiring manual numeric flag edits
+- **Reusable permission groups** — Admin panel now supports creating/storing predefined permission sets and applying them to invites and users
+- **Registration/reset password requirement hints** — Auth forms now show minimum password length guidance inline
+
+### Changed
+- **Live logs are richer** — Process `stdout`/`stderr` output is now ingested into the in-app log stream alongside tailed log file entries
+- **World display fallback improved** — Dashboard now falls back to world identifier when world name is absent/blank
+- **Server port parsing hardened** — Server config loader now prefers game config port keys and avoids falling back to manager listener port
+
+### Fixed
+- **React production crash (#310)** — Hook order/dependency issues causing blank screens after login were corrected
+- **CSRF header loss on mutating requests** — Frontend request helper now preserves CSRF headers on `POST`/`PUT`, resolving false `403 Forbidden` on protected routes
+- **Process CPU metric scaling** — Stats collector no longer over-normalizes process CPU, improving dashboard CPU visibility
+- **Windows command delivery fallback** — Console injection failures now fall back to stdin pipe instead of hard-failing command sends
+
 ## [0.2.0] - 2026-04-15
 
 ### Added

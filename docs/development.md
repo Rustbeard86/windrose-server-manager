@@ -79,13 +79,13 @@ windrose-server-manager/
 │       ├── config/mod.rs      – AppConfig (JSON file + defaults)
 │       ├── models/mod.rs      – strongly-typed request/response models
 │       ├── pid.rs             – PID file: write/read/remove (server survives manager restart)
-│       ├── process.rs         – ManagedProcess: spawn / kill / stdin
+│       ├── process.rs         – ManagedProcess: spawn / kill / console command injection + stdin fallback
 │       ├── state/mod.rs       – AppState shared container + EventHub (WS broadcast)
 │       ├── services/
-│       │   ├── server_service.rs       – start / stop / restart / send_command + PID tracking
+│       │   ├── server_service.rs       – start / stop / restart / send_command + PID tracking + stdout/stderr ingest
 │       │   ├── config_service.rs       – read / write ServerDescription.json & WorldDescription.json
 │       │   ├── config_file_service.rs  – raw config-file read/write with mtime conflict detection
-│       │   ├── log_service.rs          – incremental log-tailing + line parsing
+│       │   ├── log_service.rs          – incremental log-tailing + unified line parsing/ingest
 │       │   ├── player_service.rs       – join/leave detection from log lines
 │       │   ├── backup_service.rs       – timestamped directory backups + progress events
 │       │   ├── schedule_service.rs     – daily restart scheduler + countdown/cancel
@@ -101,6 +101,7 @@ windrose-server-manager/
 │           ├── stats.rs       – GET  /api/server/stats
 │           ├── config.rs      – GET/PUT /api/config/{server,world} + config-file management
 │           ├── setup.rs       – GET /api/setup/status, PUT /api/setup/config (FTUE wizard)
+│           ├── auth.rs        – session auth, invites, reset codes, RBAC checks, CSRF middleware
 │           ├── logs.rs        – GET  /api/logs
 │           ├── players.rs     – GET  /api/players
 │           ├── history.rs     – GET  /api/history/players
