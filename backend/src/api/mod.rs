@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod backup;
 pub mod command;
 pub mod config;
@@ -14,22 +15,69 @@ pub mod stats;
 pub mod update;
 pub mod ws;
 
-use axum::{Router, routing::{get, post, put}};
-use tower_http::cors::{Any, CorsLayer};
+use axum::{
+    http::HeaderValue,
+    Router,
+    middleware,
+    routing::{get, post, put},
+};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 
 use crate::state::AppState;
 
 /// Build the main API router. All routes are prefixed `/api` except the
 /// WebSocket endpoint `/ws` and the static file fallback.
 pub fn build_router(app_state: AppState) -> Router {
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let cors = if app_state.config.trusted_origins.is_empty() {
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any)
+    } else {
+        let origins = app_state
+            .config
+            .trusted_origins
+            .iter()
+            .filter_map(|raw| match HeaderValue::from_str(raw) {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    tracing::warn!(origin = %raw, "Skipping invalid trusted origin: {e}");
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if origins.is_empty() {
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        } else {
+            CorsLayer::new()
+                .allow_origin(AllowOrigin::list(origins))
+                .allow_credentials(true)
+                .allow_methods(Any)
+                .allow_headers(Any)
+        }
+    };
 
     Router::new()
         // ── Health ──────────────────────────────────────────────────────────
         .route("/api/health", get(health::handler))
+        // ── Auth ────────────────────────────────────────────────────────────
+        .route("/api/auth/status", get(auth::status))
+        .route("/api/auth/bootstrap", post(auth::bootstrap))
+        .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/logout", post(auth::logout))
+        .route("/api/auth/me", get(auth::me))
+        .route("/api/auth/users", get(auth::list_users))
+        .route("/api/auth/users/:id", put(auth::update_user))
+        .route("/api/auth/invites", get(auth::list_invites))
+        .route("/api/auth/invites", post(auth::create_invite))
+        .route("/api/auth/register", post(auth::register_with_invite))
+        .route("/api/auth/reset-code", post(auth::create_reset_code))
+        .route("/api/auth/reset-password", post(auth::reset_password))
+        .route("/api/auth/audit", get(auth::list_audit))
         // ── App state snapshot ──────────────────────────────────────────────
         .route("/api/state", get(state::handler))
         // ── Server lifecycle ────────────────────────────────────────────────
@@ -76,6 +124,10 @@ pub fn build_router(app_state: AppState) -> Router {
         // ── WebSocket ───────────────────────────────────────────────────────
         .route("/ws", get(ws::handler))
         // ── Middleware ──────────────────────────────────────────────────────
+        .layer(middleware::from_fn_with_state(
+            app_state.clone(),
+            auth::require_auth,
+        ))
         .layer(cors)
         .with_state(app_state)
 }

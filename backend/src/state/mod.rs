@@ -11,6 +11,7 @@ use crate::models::{
     ServerInfo, ServerStats, UpdateApplyState, UpdateCheckState, UpdateState, WsEvent, WorldConfig,
 };
 use crate::process::ManagedProcess;
+use crate::services::auth_service::{AuthService, AuthSettings};
 
 /// Capacity of the WebSocket broadcast channel.
 const WS_BROADCAST_CAPACITY: usize = 128;
@@ -84,6 +85,7 @@ pub struct AppState {
     inner: Arc<RwLock<Inner>>,
     pub event_hub: EventHub,
     pub config: Arc<AppConfig>,
+    pub auth: Arc<AuthService>,
     /// The currently-running server process, if any.
     ///
     /// Stored outside the `RwLock<Inner>` to avoid holding the state lock
@@ -106,6 +108,16 @@ impl AppState {
             },
             ..ScheduleState::default()
         };
+        let auth = AuthService::new(
+            AppConfig::binary_dir(),
+            AuthSettings {
+                session_ttl_secs: config.auth_session_ttl_secs,
+                max_failed_logins: config.auth_max_failed_logins,
+                lockout_minutes: config.auth_lockout_minutes,
+            },
+        )
+            .unwrap_or_else(|e| panic!("Failed to initialise auth service: {e}"));
+
         Self {
             inner: Arc::new(RwLock::new(Inner {
                 server_info: ServerInfo::default(),
@@ -124,6 +136,7 @@ impl AppState {
             })),
             event_hub: EventHub::new(),
             config: Arc::new(config),
+            auth: Arc::new(auth),
             process: Arc::new(Mutex::new(None)),
             schedule_cancel: Arc::new(AtomicBool::new(false)),
         }

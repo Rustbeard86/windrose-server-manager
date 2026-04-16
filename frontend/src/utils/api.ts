@@ -2,9 +2,41 @@ import type { ApiResponse } from '../types/api'
 
 const API_BASE = ''
 
+function getCookieValue(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const cookies = document.cookie ? document.cookie.split(';') : []
+  for (const cookie of cookies) {
+    const [rawKey, ...rest] = cookie.trim().split('=')
+    if (rawKey === name) {
+      return decodeURIComponent(rest.join('='))
+    }
+  }
+  return null
+}
+
+function shouldAttachCsrf(method?: string): boolean {
+  const m = (method ?? 'GET').toUpperCase()
+  return !(m === 'GET' || m === 'HEAD' || m === 'OPTIONS')
+}
+
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<ApiResponse<T>> {
-  const response = await fetch(API_BASE + path, options)
+  const headers = new Headers(options?.headers)
+  if (shouldAttachCsrf(options?.method)) {
+    const csrf = getCookieValue('wsm_csrf')
+    if (csrf) {
+      headers.set('X-CSRF-Token', csrf)
+    }
+  }
+
+  const response = await fetch(API_BASE + path, {
+    credentials: 'include',
+    headers,
+    ...options,
+  })
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('HTTP 401: Unauthorized')
+    }
     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
   }
   return response.json() as Promise<ApiResponse<T>>
