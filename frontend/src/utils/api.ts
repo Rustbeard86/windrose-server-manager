@@ -29,15 +29,22 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
   }
 
   const response = await fetch(API_BASE + path, {
+    ...options,
     credentials: 'include',
     headers,
-    ...options,
   })
   if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error('HTTP 401: Unauthorized')
+    let apiMessage: string | null = null
+    try {
+      const payload = (await response.json()) as ApiResponse<unknown>
+      apiMessage = payload?.message ?? null
+    } catch {
+      // ignore non-JSON error payloads
     }
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    if (response.status === 401) {
+      throw new Error(apiMessage ? `HTTP 401: ${apiMessage}` : 'HTTP 401: Unauthorized')
+    }
+    throw new Error(apiMessage ? `HTTP ${response.status}: ${apiMessage}` : `HTTP ${response.status}: ${response.statusText}`)
   }
   return response.json() as Promise<ApiResponse<T>>
 }
