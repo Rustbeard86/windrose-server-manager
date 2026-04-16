@@ -248,15 +248,17 @@ pub async fn send_command(state: &AppState, command: &str) -> Result<(), String>
 
 /// Background task: wait for the server process to exit and update state.
 async fn watch_process(state: AppState, started_at: chrono::DateTime<Utc>) {
-    // The process handle is stored before this task is spawned, so the lock
-    // should always yield Some immediately on the first attempt.
-    let exit_result = {
+    let exit_result = loop {
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         let mut guard = state.process.lock().await;
         match guard.as_mut() {
-            Some(managed) => managed.wait().await,
+            Some(managed) => match managed.try_wait() {
+                Ok(Some(status)) => break Ok(status),
+                Ok(None) => continue,
+                Err(e) => break Err(e),
+            },
             None => {
-                // Should not happen in normal operation; log and exit.
-                tracing::warn!("watch_process: no process handle found on entry");
+                tracing::debug!("watch_process: process handle already cleared");
                 return;
             }
         }

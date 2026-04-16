@@ -1,4 +1,5 @@
 pub mod backup_service;
+pub mod auth_service;
 pub mod config_file_service;
 pub mod config_service;
 pub mod install_service;

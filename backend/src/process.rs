@@ -64,6 +64,13 @@ impl ManagedProcess {
     /// Whether the server process actually reads and acts on the command
     /// depends on the server implementation — see module-level docs.
     pub async fn send_command(&mut self, cmd: &str) -> io::Result<()> {
+        #[cfg(windows)]
+        {
+            if send_console_command(self.pid, cmd)? {
+                return Ok(());
+            }
+        }
+
         match self.stdin.as_mut() {
             Some(stdin) => {
                 let line = format!("{}\n", cmd);
@@ -81,7 +88,14 @@ impl ManagedProcess {
     ///
     /// Returns `true` if the command was delivered to the pipe buffer.
     pub async fn graceful_stop(&mut self) -> bool {
-        self.send_command("stop").await.is_ok()
+        #[cfg(windows)]
+        {
+            if send_console_ctrl_break(self.pid).is_ok() {
+                return true;
+            }
+        }
+
+        self.send_command("quit").await.is_ok() || self.send_command("stop").await.is_ok()
     }
 
     /// Forcefully terminate the process via `SIGKILL` (Unix) or
@@ -123,6 +137,12 @@ pub fn spawn(
         cmd.current_dir(dir);
     }
 
+    #[cfg(windows)]
+    {
+        const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
+        cmd.creation_flags(CREATE_NEW_PROCESS_GROUP);
+    }
+
     // Pipe stdin so we can attempt command delivery.
     cmd.stdin(std::process::Stdio::piped());
     // Inherit stdout/stderr — the server writes its own log file.
@@ -137,4 +157,168 @@ pub fn spawn(
         "Server process spawned"
     );
     Ok(managed)
+}
+
+pub fn pid_is_running(pid: u32) -> bool {
+    let mut system = sysinfo::System::new();
+    let spid = sysinfo::Pid::from_u32(pid);
+    system.refresh_processes_specifics(
+        sysinfo::ProcessesToUpdate::Some(&[spid]),
+        sysinfo::ProcessRefreshKind::new(),
+    );
+    system.process(spid).is_some()
+}
+
+#[cfg(windows)]
+fn send_console_command(pid: u32, cmd: &str) -> io::Result<bool> {
+    win_console::send_console_command(pid, cmd)
+}
+
+#[cfg(not(windows))]
+fn send_console_command(_pid: u32, _cmd: &str) -> io::Result<bool> {
+    Ok(false)
+}
+
+#[cfg(windows)]
+fn send_console_ctrl_break(pid: u32) -> io::Result<()> {
+    win_console::send_ctrl_break(pid)
+}
+
+#[cfg(not(windows))]
+fn send_console_ctrl_break(_pid: u32) -> io::Result<()> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "console ctrl break only supported on Windows"))
+}
+
+#[cfg(windows)]
+mod win_console {
+    use std::io;
+    const ATTACH_PARENT_PROCESS: u32 = u32::MAX;
+    const CTRL_BREAK_EVENT: u32 = 1;
+    const KEY_EVENT: u16 = 0x0001;
+    const STD_INPUT_HANDLE: u32 = (-10i32) as u32;
+
+    #[repr(C)]
+    struct KeyEventRecord {
+        b_key_down: i32,
+        w_repeat_count: u16,
+        w_virtual_key_code: u16,
+        w_virtual_scan_code: u16,
+        unicode_char: u16,
+        dw_control_key_state: u32,
+    }
+
+    #[repr(C)]
+    struct InputRecord {
+        event_type: u16,
+        _padding: u16,
+        key_event: KeyEventRecord,
+    }
+
+    type Handle = isize;
+
+    #[link(name = "kernel32")]
+    unsafe extern "system" {
+        fn FreeConsole() -> i32;
+        fn AttachConsole(dw_process_id: u32) -> i32;
+        fn AllocConsole() -> i32;
+        fn GetStdHandle(n_std_handle: u32) -> Handle;
+        fn WriteConsoleInputW(
+            h_console_input: Handle,
+            lp_buffer: *const InputRecord,
+            n_length: u32,
+            lp_number_of_events_written: *mut u32,
+        ) -> i32;
+        fn SetConsoleCtrlHandler(handler_routine: *const core::ffi::c_void, add: i32) -> i32;
+        fn GenerateConsoleCtrlEvent(dw_ctrl_event: u32, dw_process_group_id: u32) -> i32;
+    }
+
+    struct ConsoleAttachmentGuard;
+
+    impl ConsoleAttachmentGuard {
+        fn attach(pid: u32) -> io::Result<Self> {
+            unsafe {
+                FreeConsole();
+                if AttachConsole(pid) == 0 {
+                    let _ = AttachConsole(ATTACH_PARENT_PROCESS);
+                    return Err(io::Error::last_os_error());
+                }
+            }
+            Ok(Self)
+        }
+    }
+
+    impl Drop for ConsoleAttachmentGuard {
+        fn drop(&mut self) {
+            unsafe {
+                FreeConsole();
+                if AttachConsole(ATTACH_PARENT_PROCESS) == 0 {
+                    let _ = AllocConsole();
+                }
+            }
+        }
+    }
+
+    pub fn send_console_command(pid: u32, cmd: &str) -> io::Result<bool> {
+        let _guard = ConsoleAttachmentGuard::attach(pid)?;
+
+        let input = unsafe { GetStdHandle(STD_INPUT_HANDLE) };
+        if input == 0 || input == -1 {
+            return Err(io::Error::last_os_error());
+        }
+
+        let mut records = Vec::with_capacity((cmd.encode_utf16().count() + 1) * 2);
+        for ch in cmd.encode_utf16().chain(std::iter::once('\r' as u16)) {
+            let vk = if ch == '\r' as u16 { 0x0D } else { 0 };
+            records.push(InputRecord {
+                event_type: KEY_EVENT,
+                _padding: 0,
+                key_event: KeyEventRecord {
+                    b_key_down: 1,
+                    w_repeat_count: 1,
+                    w_virtual_key_code: vk,
+                    w_virtual_scan_code: 0,
+                    unicode_char: ch,
+                    dw_control_key_state: 0,
+                },
+            });
+            records.push(InputRecord {
+                event_type: KEY_EVENT,
+                _padding: 0,
+                key_event: KeyEventRecord {
+                    b_key_down: 0,
+                    w_repeat_count: 1,
+                    w_virtual_key_code: vk,
+                    w_virtual_scan_code: 0,
+                    unicode_char: ch,
+                    dw_control_key_state: 0,
+                },
+            });
+        }
+
+        let mut written = 0u32;
+        let ok = unsafe {
+            WriteConsoleInputW(input, records.as_ptr(), records.len() as u32, &mut written)
+        } != 0;
+
+        if !ok {
+            return Err(io::Error::last_os_error());
+        }
+
+        Ok(written == records.len() as u32)
+    }
+
+    pub fn send_ctrl_break(pid: u32) -> io::Result<()> {
+        let _guard = ConsoleAttachmentGuard::attach(pid)?;
+
+        unsafe {
+            SetConsoleCtrlHandler(std::ptr::null(), 1);
+            let result = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid);
+            SetConsoleCtrlHandler(std::ptr::null(), 0);
+            if result == 0 {
+                return Err(io::Error::last_os_error());
+            }
+        }
+
+        Ok(())
+    }
 }
