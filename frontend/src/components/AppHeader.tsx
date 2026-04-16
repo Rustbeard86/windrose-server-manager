@@ -9,6 +9,8 @@ interface AppHeaderProps {
   activeView: string
   onViewChange: (view: string) => void
   onReRunSetup?: () => void
+  rightSlot?: React.ReactNode
+  navItems?: Array<{ id: string; label: string; icon: string }>
 }
 
 const NAV_ITEMS = [
@@ -26,8 +28,11 @@ export function AppHeader({
   activeView,
   onViewChange,
   onReRunSetup,
+  rightSlot,
+  navItems,
 }: AppHeaderProps) {
   const isOnline = wsStatus === 'connected' && connectionStatus === 'connected'
+  const visibleNavItems = navItems ?? NAV_ITEMS
 
   return (
     <header className="app-header">
@@ -55,7 +60,7 @@ export function AppHeader({
 
       {/* Navigation */}
       <nav className="header-nav" role="navigation">
-        {NAV_ITEMS.map((item) => (
+        {visibleNavItems.map((item) => (
           <button
             key={item.id}
             className={`nav-item ${activeView === item.id ? 'nav-item--active' : ''}`}
@@ -74,6 +79,8 @@ export function AppHeader({
           <span className="nav-label">Setup</span>
         </button>
       )}
+
+      {rightSlot && <div className="header-right-slot">{rightSlot}</div>}
 
       {/* Status pill */}
       <div className={`connection-pill ${isOnline ? 'connection-pill--online' : 'connection-pill--offline'}`}>

@@ -101,6 +101,12 @@
   background: var(--gold-glow);
 }
 
+.header-right-slot {
+  display: flex;
+  align-items: center;
+  margin-left: 0.4rem;
+}
+
 /* ── Connection pill ─────────────────────────────────────────────────── */
 .connection-pill {
   display: flex;

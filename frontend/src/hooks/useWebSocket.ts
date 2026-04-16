@@ -5,9 +5,10 @@ export type WsStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
 interface UseWebSocketOptions {
   onEvent?: (event: WsEvent) => void
+  enabled?: boolean
 }
 
-export function useWebSocket({ onEvent }: UseWebSocketOptions) {
+export function useWebSocket({ onEvent, enabled = true }: UseWebSocketOptions) {
   const [status, setStatus] = useState<WsStatus>('disconnected')
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -57,6 +58,11 @@ export function useWebSocket({ onEvent }: UseWebSocketOptions) {
   connectRef.current = connect
 
   useEffect(() => {
+    if (!enabled) {
+      setStatus('disconnected')
+      return
+    }
+
     connect()
     return () => {
       if (reconnectTimer.current) clearTimeout(reconnectTimer.current)
@@ -65,7 +71,7 @@ export function useWebSocket({ onEvent }: UseWebSocketOptions) {
         wsRef.current.close()
       }
     }
-  }, [connect])
+  }, [connect, enabled])
 
   return { status }
 }

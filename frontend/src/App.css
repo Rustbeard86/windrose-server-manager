@@ -36,6 +36,51 @@
   letter-spacing: 0.04em;
 }
 
+/* ── Auth gate views ──────────────────────────────────────────────────── */
+.auth-main {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 3rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 460px;
+  padding: 1.4rem;
+  border-color: var(--border-gold);
+}
+
+.auth-title {
+  font-size: 1.3rem;
+  margin: 0;
+  color: var(--text);
+}
+
+.auth-subtitle {
+  margin: 0.45rem 0 1rem;
+  font-size: 0.82rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.auth-switch-row {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0.9rem;
+  flex-wrap: wrap;
+}
+
+.auth-message {
+  margin-top: 0.8rem;
+  font-size: 0.82rem;
+  color: var(--warning);
+}
+
 /* ── Footer ────────────────────────────────────────────────────────────── */
 .app-footer {
   padding: 0.75rem 1.5rem;

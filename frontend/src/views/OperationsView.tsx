@@ -7,17 +7,28 @@ import './OperationsView.css'
 interface OperationsViewProps {
   state: AppStateSnapshot
   onReload: () => void
+  canManageBackups: boolean
+  canManageSchedule: boolean
+  canManageUpdates: boolean
+  canManageInstall: boolean
 }
 
-export function OperationsView({ state, onReload }: OperationsViewProps) {
+export function OperationsView({
+  state,
+  onReload,
+  canManageBackups,
+  canManageSchedule,
+  canManageUpdates,
+  canManageInstall,
+}: OperationsViewProps) {
   const { backup, schedule, install, update, server_configured } = state
 
   return (
     <div className="ops-view animate-fade-in">
-      <BackupPanel backup={backup} onReload={onReload} />
-      <SchedulePanel schedule={schedule} onReload={onReload} />
-      <UpdatePanel update={update} onReload={onReload} />
-      <InstallPanel install={install} serverConfigured={server_configured} onReload={onReload} />
+      <BackupPanel backup={backup} onReload={onReload} canManage={canManageBackups} />
+      <SchedulePanel schedule={schedule} onReload={onReload} canManage={canManageSchedule} />
+      <UpdatePanel update={update} onReload={onReload} canManage={canManageUpdates} />
+      <InstallPanel install={install} serverConfigured={server_configured} onReload={onReload} canManage={canManageInstall} />
     </div>
   )
 }
@@ -25,7 +36,7 @@ export function OperationsView({ state, onReload }: OperationsViewProps) {
 // ──────────────────────────────────────────────────────────────────────────────
 // Backup panel
 // ──────────────────────────────────────────────────────────────────────────────
-function BackupPanel({ backup, onReload }: { backup: AppStateSnapshot['backup']; onReload: () => void }) {
+function BackupPanel({ backup, onReload, canManage }: { backup: AppStateSnapshot['backup']; onReload: () => void; canManage: boolean }) {
   const [label, setLabel] = useState('')
   const [creating, setCreating] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -78,12 +89,12 @@ function BackupPanel({ backup, onReload }: { backup: AppStateSnapshot['backup'];
           placeholder="Optional label…"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          disabled={running || creating}
+          disabled={!canManage || running || creating}
         />
         <button
           className="btn btn-primary"
           onClick={createBackup}
-          disabled={running || creating}
+          disabled={!canManage || running || creating}
         >
           {creating ? 'Starting…' : '+ Create Backup'}
         </button>
@@ -116,7 +127,7 @@ function BackupPanel({ backup, onReload }: { backup: AppStateSnapshot['backup'];
 // ──────────────────────────────────────────────────────────────────────────────
 // Schedule panel
 // ──────────────────────────────────────────────────────────────────────────────
-function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['schedule']; onReload: () => void }) {
+function SchedulePanel({ schedule, onReload, canManage }: { schedule: AppStateSnapshot['schedule']; onReload: () => void; canManage: boolean }) {
   const [cfg, setCfg] = useState(schedule.config)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -174,6 +185,7 @@ function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['sch
             <input
               type="checkbox"
               checked={cfg.enabled}
+              disabled={!canManage}
               onChange={(e) => setCfg((c) => ({ ...c, enabled: e.target.checked }))}
             />
             <span className="toggle-slider" />
@@ -189,6 +201,7 @@ function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['sch
               min={0}
               max={23}
               value={cfg.restart_hour}
+              disabled={!canManage}
               onChange={(e) => setCfg((c) => ({ ...c, restart_hour: Math.min(23, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
             />
           </div>
@@ -200,6 +213,7 @@ function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['sch
               min={0}
               max={59}
               value={cfg.restart_minute}
+              disabled={!canManage}
               onChange={(e) => setCfg((c) => ({ ...c, restart_minute: Math.min(59, Math.max(0, parseInt(e.target.value, 10) || 0)) }))}
             />
           </div>
@@ -210,6 +224,7 @@ function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['sch
               type="number"
               min={0}
               value={cfg.warning_seconds}
+              disabled={!canManage}
               onChange={(e) => setCfg((c) => ({ ...c, warning_seconds: parseInt(e.target.value, 10) }))}
             />
           </div>
@@ -217,7 +232,7 @@ function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['sch
       </div>
 
       <div className="ops-form" style={{ marginTop: '0.75rem' }}>
-        <button className="btn btn-primary" onClick={save} disabled={saving}>
+        <button className="btn btn-primary" onClick={save} disabled={!canManage || saving}>
           {saving ? 'Saving…' : 'Save Schedule'}
         </button>
       </div>
@@ -238,7 +253,7 @@ function SchedulePanel({ schedule, onReload }: { schedule: AppStateSnapshot['sch
 // ──────────────────────────────────────────────────────────────────────────────
 // Update check panel
 // ──────────────────────────────────────────────────────────────────────────────
-function UpdatePanel({ update, onReload }: { update: AppStateSnapshot['update']; onReload: () => void }) {
+function UpdatePanel({ update, onReload, canManage }: { update: AppStateSnapshot['update']; onReload: () => void; canManage: boolean }) {
   const [checking, setChecking] = useState(false)
   const [applying, setApplying] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
@@ -335,7 +350,7 @@ function UpdatePanel({ update, onReload }: { update: AppStateSnapshot['update'];
         <button
           className="btn"
           onClick={checkUpdate}
-          disabled={checking || update.check_state === 'checking' || isApplying}
+          disabled={!canManage || checking || update.check_state === 'checking' || isApplying}
         >
           {checking || update.check_state === 'checking' ? 'Checking…' : 'Check for Updates'}
         </button>
@@ -344,7 +359,7 @@ function UpdatePanel({ update, onReload }: { update: AppStateSnapshot['update'];
           <button
             className="btn btn-primary"
             onClick={applyUpdate}
-            disabled={isApplying}
+            disabled={!canManage || isApplying}
           >
             {isApplying ? applyLabel : 'Apply Update'}
           </button>
@@ -368,10 +383,11 @@ function UpdatePanel({ update, onReload }: { update: AppStateSnapshot['update'];
 // ──────────────────────────────────────────────────────────────────────────────
 // Install panel
 // ──────────────────────────────────────────────────────────────────────────────
-function InstallPanel({ install, serverConfigured, onReload }: {
+function InstallPanel({ install, serverConfigured, onReload, canManage }: {
   install: AppStateSnapshot['install']
   serverConfigured: boolean
   onReload: () => void
+  canManage: boolean
 }) {
   const [source, setSource] = useState(install.detected_sources[0] ?? '')
   const [dest, setDest] = useState(install.destination ?? '')
@@ -478,14 +494,14 @@ function InstallPanel({ install, serverConfigured, onReload }: {
       </div>
 
       <div className="ops-form">
-        <button className="btn" onClick={detect} disabled={detecting || isBusy}>
+        <button className="btn" onClick={detect} disabled={!canManage || detecting || isBusy}>
           {detecting ? 'Detecting…' : '🔍 Detect'}
         </button>
         {!serverConfigured && (
           <button
             className="btn btn-primary"
             onClick={runInstall}
-            disabled={!source || !dest || installing || isBusy}
+            disabled={!canManage || !source || !dest || installing || isBusy}
           >
             {installing ? 'Installing…' : '▶ Run Install'}
           </button>
