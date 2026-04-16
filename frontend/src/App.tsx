@@ -104,6 +104,29 @@ export default function App() {
     }
   }
 
+  const canManageServer = hasPermission(sessionInfo, PERM_MANAGE_SERVER)
+  const canManageConfig = hasPermission(sessionInfo, PERM_MANAGE_CONFIG)
+  const canManageBackups = hasPermission(sessionInfo, PERM_MANAGE_BACKUPS)
+  const canManageInstall = hasPermission(sessionInfo, PERM_MANAGE_INSTALL)
+  const canManageUpdates = hasPermission(sessionInfo, PERM_MANAGE_UPDATES)
+  const canManageSchedule = hasPermission(sessionInfo, PERM_MANAGE_SCHEDULE)
+  const canManageUsers = hasPermission(sessionInfo, PERM_MANAGE_USERS)
+
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: '⚓' },
+    { id: 'logs', label: 'Logs', icon: '📋' },
+    { id: 'players', label: 'Players', icon: '👥' },
+    ...(canManageConfig ? [{ id: 'config', label: 'Config', icon: '⚙️' }] : []),
+    { id: 'operations', label: 'Operations', icon: '🔧' },
+    ...(canManageUsers ? [{ id: 'admin', label: 'Admin', icon: '🛡️' }] : []),
+  ]
+
+  useEffect(() => {
+    if (!navItems.some((v) => v.id === activeView)) {
+      setActiveView('dashboard')
+    }
+  }, [activeView, navItems])
+
   if (setupNeeded === null) {
     return (
       <div className="app-shell">
@@ -135,29 +158,6 @@ export default function App() {
   if (authStatus.has_users && !sessionInfo) {
     return <LoginView onLoggedIn={refreshAuthSession} />
   }
-
-  const canManageServer = hasPermission(sessionInfo, PERM_MANAGE_SERVER)
-  const canManageConfig = hasPermission(sessionInfo, PERM_MANAGE_CONFIG)
-  const canManageBackups = hasPermission(sessionInfo, PERM_MANAGE_BACKUPS)
-  const canManageInstall = hasPermission(sessionInfo, PERM_MANAGE_INSTALL)
-  const canManageUpdates = hasPermission(sessionInfo, PERM_MANAGE_UPDATES)
-  const canManageSchedule = hasPermission(sessionInfo, PERM_MANAGE_SCHEDULE)
-  const canManageUsers = hasPermission(sessionInfo, PERM_MANAGE_USERS)
-
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: '⚓' },
-    { id: 'logs', label: 'Logs', icon: '📋' },
-    { id: 'players', label: 'Players', icon: '👥' },
-    ...(canManageConfig ? [{ id: 'config', label: 'Config', icon: '⚙️' }] : []),
-    { id: 'operations', label: 'Operations', icon: '🔧' },
-    ...(canManageUsers ? [{ id: 'admin', label: 'Admin', icon: '🛡️' }] : []),
-  ]
-
-  useEffect(() => {
-    if (!navItems.some((v) => v.id === activeView)) {
-      setActiveView('dashboard')
-    }
-  }, [activeView, navItems])
 
   function renderView() {
     if (!state) {
