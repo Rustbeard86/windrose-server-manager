@@ -96,13 +96,8 @@ impl ManagedProcess {
     ///
     /// Returns `true` if the command was delivered to the pipe buffer.
     pub async fn graceful_stop(&mut self) -> bool {
-        #[cfg(windows)]
-        {
-            if send_console_ctrl_break(self.pid).is_ok() {
-                return true;
-            }
-        }
-
+        // Use in-band server commands for graceful stop to avoid console
+        // control signals affecting the manager process on Windows.
         self.send_command("quit").await.is_ok() || self.send_command("stop").await.is_ok()
     }
 
@@ -188,20 +183,9 @@ fn send_console_command(_pid: u32, _cmd: &str) -> io::Result<bool> {
 }
 
 #[cfg(windows)]
-fn send_console_ctrl_break(pid: u32) -> io::Result<()> {
-    win_console::send_ctrl_break(pid)
-}
-
-#[cfg(not(windows))]
-fn send_console_ctrl_break(_pid: u32) -> io::Result<()> {
-    Err(io::Error::new(io::ErrorKind::Unsupported, "console ctrl break only supported on Windows"))
-}
-
-#[cfg(windows)]
 mod win_console {
     use std::io;
     const ATTACH_PARENT_PROCESS: u32 = u32::MAX;
-    const CTRL_BREAK_EVENT: u32 = 1;
     const KEY_EVENT: u16 = 0x0001;
     const STD_INPUT_HANDLE: u32 = (-10i32) as u32;
 
@@ -236,8 +220,6 @@ mod win_console {
             n_length: u32,
             lp_number_of_events_written: *mut u32,
         ) -> i32;
-        fn SetConsoleCtrlHandler(handler_routine: *const core::ffi::c_void, add: i32) -> i32;
-        fn GenerateConsoleCtrlEvent(dw_ctrl_event: u32, dw_process_group_id: u32) -> i32;
     }
 
     struct ConsoleAttachmentGuard;
@@ -315,18 +297,4 @@ mod win_console {
         Ok(written == records.len() as u32)
     }
 
-    pub fn send_ctrl_break(pid: u32) -> io::Result<()> {
-        let _guard = ConsoleAttachmentGuard::attach(pid)?;
-
-        unsafe {
-            SetConsoleCtrlHandler(std::ptr::null(), 1);
-            let result = GenerateConsoleCtrlEvent(CTRL_BREAK_EVENT, pid);
-            SetConsoleCtrlHandler(std::ptr::null(), 0);
-            if result == 0 {
-                return Err(io::Error::last_os_error());
-            }
-        }
-
-        Ok(())
-    }
 }

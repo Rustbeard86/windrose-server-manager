@@ -23,6 +23,24 @@ pub async fn start(state: &AppState) -> Result<(), String> {
         ));
     }
 
+    // Defensive guard: if a PID file exists and process is still alive, do not
+    // spawn a second server instance.
+    if let Some(existing_pid) = pid::read() {
+        if process::pid_is_running(existing_pid) {
+            state
+                .set_server_info(ServerInfo {
+                    status: ServerStatus::Running,
+                    pid: Some(existing_pid),
+                    uptime_seconds: current.uptime_seconds,
+                    started_at: current.started_at,
+                })
+                .await;
+            return Err(format!(
+                "Server process is already running (pid {existing_pid}); refusing to start a duplicate"
+            ));
+        }
+    }
+
     let exe_path = state
         .config
         .server_executable
@@ -158,7 +176,9 @@ pub async fn stop(state: &AppState) -> Result<(), String> {
 
     let timeout = state.config.server_stop_timeout_secs;
 
-    let result = {
+    let tracked_pid = current.pid;
+
+    let mut result = {
         let mut proc_guard = state.process.lock().await;
         match proc_guard.as_mut() {
             None => {
@@ -211,6 +231,19 @@ pub async fn stop(state: &AppState) -> Result<(), String> {
             }
         }
     };
+
+    // Final safety net: verify tracked PID is gone. If still alive, force-kill
+    // by PID so restart cannot create duplicate server instances.
+    if let Some(pid_value) = tracked_pid {
+        if process::pid_is_running(pid_value) {
+            warn!(pid = pid_value, "Tracked server PID still alive after stop attempt; forcing PID kill");
+            if let Err(e) = pid::kill_by_pid(pid_value) {
+                if result.is_ok() {
+                    result = Err(format!("Failed to terminate server pid {pid_value}: {e}"));
+                }
+            }
+        }
+    }
 
     // Release the process handle regardless of outcome.
     *state.process.lock().await = None;
