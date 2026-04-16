@@ -19,9 +19,8 @@ export function useAppState(enabled = true) {
   const [liveLogLines, setLiveLogLines] = useState<LogLine[]>([])
   const [livePlayerEvents, setLivePlayerEvents] = useState<PlayerEvent[]>([])
 
-  const loadStateRef = useRef<() => Promise<void>>(async () => {})
-
-  const loadState = useCallback(async () => {
+  // Load state - not memoized to avoid dependency chain issues
+  const loadState = async () => {
     try {
       const response = await apiGet<AppStateSnapshot>('/api/state')
       if (response.success && response.data) {
@@ -33,10 +32,7 @@ export function useAppState(enabled = true) {
     } catch {
       setConnectionStatus('error')
     }
-  }, [])
-
-  // Keep the ref in sync so effects can access the latest loadState without it being a dependency
-  loadStateRef.current = loadState
+  }
 
   const handleWsEvent = useCallback((event: WsEvent) => {
     switch (event.event) {
@@ -181,7 +177,7 @@ export function useAppState(enabled = true) {
     if (prevWsRef.current !== wsStatus) {
       if (wsStatus === 'connected') {
         // Re-hydrate state on reconnect
-        void loadStateRef.current?.()
+        void loadState()
       }
       prevWsRef.current = wsStatus
     }
@@ -192,14 +188,14 @@ export function useAppState(enabled = true) {
       setConnectionStatus('disconnected')
       return
     }
-    void loadStateRef.current?.()
+    void loadState()
   }, [enabled])
 
   useEffect(() => {
     if (!enabled) return
 
     const timer = window.setInterval(() => {
-      void loadStateRef.current?.()
+      void loadState()
     }, 5000)
 
     return () => window.clearInterval(timer)
@@ -211,6 +207,6 @@ export function useAppState(enabled = true) {
     wsStatus,
     liveLogLines,
     livePlayerEvents,
-    reload: () => loadStateRef.current?.(),
+    reload: loadState,
   }
 }

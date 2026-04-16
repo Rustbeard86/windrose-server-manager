@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { WsEvent } from '../types/api'
 
 export type WsStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
@@ -13,12 +13,10 @@ export function useWebSocket({ onEvent, enabled = true }: UseWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onEventRef = useRef(onEvent)
-  // Use a ref for the connect function so the onclose callback can always
-  // reference the latest version without closuring over a stale copy.
-  const connectRef = useRef<() => void>(() => {})
   onEventRef.current = onEvent
 
-  const connect = useCallback(() => {
+  // Connect logic - not memoized to avoid dependency issues
+  const connect = () => {
     if (wsRef.current) {
       wsRef.current.onclose = null
       wsRef.current.close()
@@ -49,13 +47,10 @@ export function useWebSocket({ onEvent, enabled = true }: UseWebSocketOptions) {
     ws.onclose = () => {
       setStatus('disconnected')
       wsRef.current = null
-      // Reconnect after 5 seconds via ref to avoid closure-over-stale issue.
-      reconnectTimer.current = setTimeout(() => connectRef.current(), 5000)
+      // Reconnect after 5 seconds
+      reconnectTimer.current = setTimeout(() => connect(), 5000)
     }
-  }, [])
-
-  // Keep the ref in sync with the memoised callback.
-  connectRef.current = connect
+  }
 
   useEffect(() => {
     if (!enabled) {
@@ -71,7 +66,7 @@ export function useWebSocket({ onEvent, enabled = true }: UseWebSocketOptions) {
         wsRef.current.close()
       }
     }
-  }, [connect, enabled])
+  }, [enabled])
 
   return { status }
 }
