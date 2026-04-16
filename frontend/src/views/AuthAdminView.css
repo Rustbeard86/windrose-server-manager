@@ -75,6 +75,18 @@
   font-size: 0.78rem;
 }
 
+.auth-admin-permission-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 0.6rem;
+  margin-top: 0.1rem;
+}
+
+.auth-admin-perm-item {
+  white-space: nowrap;
+}
+
 .auth-admin-user-grid .btn {
   justify-self: start;
 }

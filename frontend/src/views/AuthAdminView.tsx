@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react'
 import type { AuditEventSummary, AuthUserSummary, CreatedInvite, InviteSummary } from '../types/api'
 import { apiGet, apiPost, apiPut } from '../utils/api'
+import {
+  PERM_MANAGE_BACKUPS,
+  PERM_MANAGE_CONFIG,
+  PERM_MANAGE_INSTALL,
+  PERM_MANAGE_SCHEDULE,
+  PERM_MANAGE_SERVER,
+  PERM_MANAGE_UPDATES,
+  PERM_MANAGE_USERS,
+  PERM_VIEW_DASHBOARD,
+} from '../utils/permissions'
 import './AuthAdminView.css'
 
 interface AuthAdminViewProps {
@@ -11,6 +21,39 @@ interface UserEditState {
   is_admin: boolean
   permission_flags: string
   disabled: boolean
+}
+
+const PERMISSION_OPTIONS: Array<{ label: string; mask: number }> = [
+  { label: 'View Dashboard', mask: PERM_VIEW_DASHBOARD },
+  { label: 'Manage Server', mask: PERM_MANAGE_SERVER },
+  { label: 'Manage Config', mask: PERM_MANAGE_CONFIG },
+  { label: 'Manage Backups', mask: PERM_MANAGE_BACKUPS },
+  { label: 'Manage Install', mask: PERM_MANAGE_INSTALL },
+  { label: 'Manage Updates', mask: PERM_MANAGE_UPDATES },
+  { label: 'Manage Schedule', mask: PERM_MANAGE_SCHEDULE },
+  { label: 'Manage Users', mask: PERM_MANAGE_USERS },
+]
+
+function parseFlags(value: string): bigint {
+  const trimmed = value.trim()
+  if (!trimmed) return 0n
+  try {
+    return BigInt(trimmed)
+  } catch {
+    return 0n
+  }
+}
+
+function hasFlag(flags: string, mask: number): boolean {
+  const maskBig = BigInt(mask)
+  return (parseFlags(flags) & maskBig) === maskBig
+}
+
+function updateFlag(flags: string, mask: number, enabled: boolean): string {
+  const maskBig = BigInt(mask)
+  const current = parseFlags(flags)
+  const next = enabled ? (current | maskBig) : (current & ~maskBig)
+  return next.toString()
 }
 
 export function AuthAdminView({ canManageUsers }: AuthAdminViewProps) {
@@ -246,6 +289,32 @@ export function AuthAdminView({ canManageUsers }: AuthAdminViewProps) {
                     },
                   }))}
                 />
+
+                <div className="auth-admin-permission-grid">
+                  {PERMISSION_OPTIONS.map((perm) => {
+                    const currentFlags = userEdits[u.id]?.permission_flags ?? String(u.permission_flags)
+                    return (
+                      <label key={`${u.id}-${perm.mask}`} className="auth-admin-checkline auth-admin-perm-item">
+                        <input
+                          type="checkbox"
+                          checked={hasFlag(currentFlags, perm.mask)}
+                          onChange={(e) => setUserEdits((prev) => ({
+                            ...prev,
+                            [u.id]: {
+                              ...(prev[u.id] ?? {
+                                is_admin: u.is_admin,
+                                permission_flags: String(u.permission_flags),
+                                disabled: u.disabled,
+                              }),
+                              permission_flags: updateFlag(currentFlags, perm.mask, e.target.checked),
+                            },
+                          }))}
+                        />
+                        <span>{perm.label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
 
                 <button
                   className="btn btn-sm btn-primary"
