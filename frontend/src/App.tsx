@@ -253,6 +253,10 @@ function BootstrapAdminView({ onComplete }: { onComplete: () => Promise<void> | 
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (password.length < 10) {
+      setMessage('Password must be at least 10 characters')
+      return
+    }
     if (password !== confirmPassword) {
       setMessage('Passwords do not match')
       return
@@ -292,7 +296,7 @@ function BootstrapAdminView({ onComplete }: { onComplete: () => Promise<void> | 
             <label className="field-label">Confirm Password</label>
             <input className="input" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
 
-            <button className="btn btn-primary" type="submit" disabled={busy || !username || !password}>
+            <button className="btn btn-primary" type="submit" disabled={busy || !username || password.length < 10 || !confirmPassword}>
               {busy ? 'Creating…' : 'Create Admin'}
             </button>
           </form>
