@@ -23,7 +23,7 @@ use std::path::Path;
 
 use tokio::io::AsyncWriteExt;
 use tokio::process::{Child, ChildStdin, Command};
-use tracing::info;
+use tracing::{info, warn};
 
 // ---------------------------------------------------------------------------
 // ManagedProcess
@@ -66,8 +66,16 @@ impl ManagedProcess {
     pub async fn send_command(&mut self, cmd: &str) -> io::Result<()> {
         #[cfg(windows)]
         {
-            if send_console_command(self.pid, cmd)? {
-                return Ok(());
+            match send_console_command(self.pid, cmd) {
+                Ok(true) => return Ok(()),
+                Ok(false) => {
+                    // Console not available for injection; fall through to stdin pipe.
+                }
+                Err(e) => {
+                    // Some servers do not expose an attachable console. Keep going and
+                    // try the stdin pipe instead of hard-failing command delivery.
+                    warn!(pid = self.pid, "Console command injection failed ({e}); falling back to stdin pipe");
+                }
             }
         }
 
@@ -145,9 +153,9 @@ pub fn spawn(
 
     // Pipe stdin so we can attempt command delivery.
     cmd.stdin(std::process::Stdio::piped());
-    // Inherit stdout/stderr — the server writes its own log file.
-    cmd.stdout(std::process::Stdio::null());
-    cmd.stderr(std::process::Stdio::null());
+    // Pipe stdout/stderr so the manager can ingest live output alongside file tails.
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
 
     let child = cmd.spawn()?;
     let managed = ManagedProcess::new(child);

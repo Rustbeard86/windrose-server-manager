@@ -53,10 +53,9 @@ pub fn start_stats_collector(state: AppState) {
                 .map(|p| (p.cpu_usage(), p.memory()))
                 .unwrap_or((0.0, 0));
 
-            // Normalise CPU to 0-100 % across all logical cores.
-            sys.refresh_cpu_all();
-            let num_cpus = sys.cpus().len().max(1) as f32;
-            let cpu_percent = (cpu_raw / num_cpus).clamp(0.0, 100.0);
+            // sysinfo already reports process CPU as a percentage value.
+            // Keep it in a user-friendly 0-100 display range.
+            let cpu_percent = cpu_raw.clamp(0.0, 100.0);
 
             // ── System total memory ───────────────────────────────────────────
             sys.refresh_memory();

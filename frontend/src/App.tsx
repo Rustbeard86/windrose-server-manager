@@ -238,7 +238,7 @@ export default function App() {
       <footer className="app-footer">
         Windrose Server Manager
         {state?.app_version && <> &mdash; v{state.app_version}</>}
-        {' '}&mdash; 127.0.0.1:8787
+        {' '}&mdash; {typeof window !== 'undefined' ? window.location.host : '—'}
       </footer>
     </div>
   )

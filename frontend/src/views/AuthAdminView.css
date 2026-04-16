@@ -87,6 +87,17 @@
   white-space: nowrap;
 }
 
+.auth-admin-inline-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.auth-admin-inline-actions .input {
+  min-width: 0;
+}
+
 .auth-admin-user-grid .btn {
   justify-self: start;
 }

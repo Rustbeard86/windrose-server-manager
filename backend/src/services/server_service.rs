@@ -1,10 +1,12 @@
 use chrono::Utc;
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tracing::{error, info, warn};
 
 use crate::config::AppConfig;
 use crate::models::{ServerInfo, ServerStatus};
 use crate::pid;
 use crate::process;
+use crate::services::log_service;
 use crate::state::AppState;
 
 /// Attempt to start the managed server process.
@@ -63,7 +65,7 @@ pub async fn start(state: &AppState) -> Result<(), String> {
         }
     });
 
-    let managed = process::spawn(
+    let mut managed = process::spawn(
         &exe_path,
         &state.config.server_args,
         working_dir.as_deref(),
@@ -72,6 +74,14 @@ pub async fn start(state: &AppState) -> Result<(), String> {
 
     let pid = managed.pid;
     let started_at = Utc::now();
+
+    // Stream process output into the in-app log feed.
+    if let Some(stdout) = managed.child.stdout.take() {
+        spawn_output_ingest(state.clone(), stdout, "STDOUT");
+    }
+    if let Some(stderr) = managed.child.stderr.take() {
+        spawn_output_ingest(state.clone(), stderr, "STDERR");
+    }
 
     // Persist the PID so a restarted manager can re-adopt the process.
     pid::write(pid);
@@ -97,6 +107,31 @@ pub async fn start(state: &AppState) -> Result<(), String> {
     });
 
     Ok(())
+}
+
+fn spawn_output_ingest<R>(state: AppState, reader: R, source: &'static str)
+where
+    R: tokio::io::AsyncRead + Unpin + Send + 'static,
+{
+    tokio::spawn(async move {
+        let mut lines = BufReader::new(reader).lines();
+        loop {
+            match lines.next_line().await {
+                Ok(Some(line)) => {
+                    let trimmed = line.trim();
+                    if trimmed.is_empty() {
+                        continue;
+                    }
+                    log_service::ingest_raw(&state, &format!("[{source}] {trimmed}")).await;
+                }
+                Ok(None) => break,
+                Err(e) => {
+                    warn!("Failed reading {source} stream: {e}");
+                    break;
+                }
+            }
+        }
+    });
 }
 
 /// Attempt to stop the managed server process.

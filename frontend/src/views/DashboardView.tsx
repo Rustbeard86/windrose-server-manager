@@ -248,7 +248,7 @@ export function DashboardView({ state, onReload, canManageServer }: DashboardVie
           </div>
           <dl className="info-list">
             <dt>World</dt>
-            <dd>{state.world_config?.world_name || '—'}</dd>
+            <dd>{state.world_config?.world_name || state.world_config?.seed || '—'}</dd>
             <dt>Seed</dt>
             <dd>{state.world_config?.seed || '—'}</dd>
             <dt>Started</dt>

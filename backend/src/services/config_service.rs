@@ -13,7 +13,7 @@ pub async fn load_server_config(state: &AppState) -> Result<ServerConfig, String
         if cfg_path.exists() {
             let mut cfg = read_server_config_from_file(&cfg_path).await?;
             if cfg.port == 0 {
-                cfg.port = state.config.port;
+                cfg.port = 7777;
             }
             state.set_server_config(cfg.clone()).await;
             return Ok(cfg);
@@ -104,6 +104,14 @@ async fn read_server_config_from_file(path: &Path) -> Result<ServerConfig, Strin
             .and_then(|v| v.as_object())
             .ok_or_else(|| "ServerDescription_Persistent must be an object".to_string())?;
 
+        let parsed_port = inner
+            .get("Port")
+            .or_else(|| inner.get("ServerPort"))
+            .or_else(|| inner.get("GamePort"))
+            .and_then(|v| v.as_u64())
+            .or_else(|| value.get("Port").and_then(|v| v.as_u64()))
+            .unwrap_or(7777) as u16;
+
         Ok(ServerConfig {
             server_name: inner
                 .get("ServerName")
@@ -114,10 +122,7 @@ async fn read_server_config_from_file(path: &Path) -> Result<ServerConfig, Strin
                 .get("MaxPlayerCount")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(10) as u32,
-            port: value
-                .get("Port")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u16,
+            port: parsed_port,
             invite_code: inner
                 .get("InviteCode")
                 .and_then(|v| v.as_str())
@@ -144,16 +149,22 @@ async fn read_world_config_from_file(path: &Path) -> Result<WorldConfig, String>
             .and_then(|v| v.as_object())
             .ok_or_else(|| "WorldDescription must be an object".to_string())?;
 
+        let island_id = inner
+            .get("islandId")
+            .and_then(|v| v.as_str())
+            .map(ToOwned::to_owned);
+        let world_name = inner
+            .get("WorldName")
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|name| !name.is_empty())
+            .map(ToOwned::to_owned)
+            .or_else(|| island_id.clone())
+            .unwrap_or_else(|| "Windrose World".to_string());
+
         Ok(WorldConfig {
-            world_name: inner
-                .get("WorldName")
-                .and_then(|v| v.as_str())
-                .unwrap_or("Windrose World")
-                .to_string(),
-            seed: inner
-                .get("islandId")
-                .and_then(|v| v.as_str())
-                .map(ToOwned::to_owned),
+            world_name,
+            seed: island_id,
             extra: serde_json::Value::Object(serde_json::Map::new()),
         })
     } else {
