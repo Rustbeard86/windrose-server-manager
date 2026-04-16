@@ -1,0 +1,101 @@
+.auth-admin-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 1rem;
+}
+
+.auth-admin-card {
+  padding: 1rem 1.1rem;
+}
+
+.auth-admin-form-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+}
+
+.auth-admin-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.auth-admin-result {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.auth-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.auth-admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.3rem;
+}
+
+.auth-admin-user-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.auth-admin-user-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.auth-admin-username {
+  font-weight: 600;
+}
+
+.auth-admin-user-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem 0.5rem;
+  align-items: center;
+}
+
+.auth-admin-checkline {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.auth-admin-user-grid .btn {
+  justify-self: start;
+}
+
+.auth-admin-audit {
+  grid-column: 1 / -1;
+}
+
+.auth-admin-row-audit {
+  grid-template-columns: 220px 1fr 160px auto;
+  display: grid;
+  align-items: center;
+}
+
+.auth-admin-audit-time {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+}
+
+.auth-admin-message {
+  grid-column: 1 / -1;
+  font-size: 0.82rem;
+}

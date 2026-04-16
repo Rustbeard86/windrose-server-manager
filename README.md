@@ -14,7 +14,7 @@
 </div>
 
 > [!NOTE]
-> Place the binary next to `WindroseServer.exe`, run it, and open `http://127.0.0.1:8787`. The dashboard lets you start, stop, and monitor your Windrose server — no separate install, no extra config files, no external services.
+> Place the binary next to `WindroseServer.exe`, run it, and open `http://127.0.0.1:8787` (or `https://127.0.0.1:8443` when TLS is enabled). The dashboard lets you start, stop, and monitor your Windrose server — no separate install, no extra config files, no external services.
 
 ---
 
@@ -89,6 +89,8 @@ The banner is printed to the console on startup:
 
 Open `http://127.0.0.1:8787` in your browser to access the dashboard.
 
+If TLS is enabled in config, open `https://127.0.0.1:8443` (or your configured TLS port) instead.
+
 Pressing **Ctrl+C** stops the manager process. The game server process keeps running and will be re-adopted automatically the next time the manager starts.
 
 ### Environment variables
@@ -107,6 +109,14 @@ On first run, `windrose-server-manager.exe` writes a `windrose-server-manager.js
 {
   "bind_address": "127.0.0.1",
   "port": 8787,
+  "tls_enabled": false,
+  "tls_bind_address": null,
+  "tls_port": 8443,
+  "tls_cert_path": null,
+  "tls_key_path": null,
+  "http_redirect_enabled": false,
+  "http_redirect_port": 8787,
+  "trusted_origins": [],
   "server_executable": "WindroseServer.exe",
   "server_args": [],
   "server_working_dir": "R5",
@@ -116,7 +126,13 @@ On first run, `windrose-server-manager.exe` writes a `windrose-server-manager.js
   "player_event_capacity": 200,
   "backup_dir": "backups",
   "history_file_path": null,
-  "update_check_url": "https://api.github.com/repos/Rustbeard86/windrose-server-manager/releases/latest"
+  "update_check_url": "https://api.github.com/repos/Rustbeard86/windrose-server-manager/releases/latest",
+  "auth_session_ttl_secs": 43200,
+  "auth_invite_ttl_hours": 168,
+  "auth_reset_ttl_minutes": 30,
+  "auth_max_failed_logins": 5,
+  "auth_lockout_minutes": 15,
+  "audit_retention_days": 30
 }
 ```
 
@@ -126,6 +142,14 @@ Paths can be relative (resolved from the directory containing the binary) or abs
 |-------|---------|-------------|
 | `bind_address` | `"127.0.0.1"` | Interface to listen on. Set to `"0.0.0.0"` to accept connections from other machines (e.g. accessing the dashboard via Steam overlay from a client while the server runs on a dedicated host) |
 | `port` | `8787` | HTTP port |
+| `tls_enabled` | `false` | Enable built-in HTTPS listener |
+| `tls_bind_address` | `null` | Optional bind address for HTTPS. Falls back to `bind_address` |
+| `tls_port` | `8443` | HTTPS port |
+| `tls_cert_path` | `null` | Path to TLS certificate PEM (required when `tls_enabled=true`) |
+| `tls_key_path` | `null` | Path to TLS private key PEM (required when `tls_enabled=true`) |
+| `http_redirect_enabled` | `false` | Start HTTP listener that permanently redirects to HTTPS |
+| `http_redirect_port` | `8787` | Port for HTTP redirect listener |
+| `trusted_origins` | `[]` | Exact origins allowed for CORS; empty keeps permissive legacy behavior |
 | `server_executable` | `"WindroseServer.exe"` | Path to the server executable |
 | `server_args` | `[]` | Extra arguments forwarded to the server on start |
 | `server_working_dir` | `"R5"` | Server working directory — `ServerDescription.json` and `WorldDescription.json` are resolved here |
@@ -136,6 +160,12 @@ Paths can be relative (resolved from the directory containing the binary) or abs
 | `backup_dir` | `"backups"` | Directory where backups are written |
 | `history_file_path` | `null` | Path to persist player-event history across restarts. Leave `null` for in-memory only |
 | `update_check_url` | GitHub Releases API | URL for update checks. Set to `""` to disable |
+| `auth_session_ttl_secs` | `43200` | Session cookie max age (seconds) |
+| `auth_invite_ttl_hours` | `168` | Default invite expiry for admin UI (hours) |
+| `auth_reset_ttl_minutes` | `30` | Default reset-code expiry for admin UI (minutes) |
+| `auth_max_failed_logins` | `5` | Failed login attempts before temporary lockout |
+| `auth_lockout_minutes` | `15` | Lockout duration after too many failed logins |
+| `audit_retention_days` | `30` | Audit retention target (cleanup task planned) |
 
 ### Remote / dedicated-host setup
 
@@ -147,6 +177,8 @@ To manage a server on a dedicated host from the Steam overlay:
 
 > [!IMPORTANT]
 > Binding to `0.0.0.0` exposes the management dashboard to the network. Only do this on hosts you control, and consider restricting access at the firewall level to trusted IPs.
+
+For direct internet exposure, enable TLS and provide valid `tls_cert_path` and `tls_key_path` PEM files.
 
 ---
 
